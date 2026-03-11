@@ -1,0 +1,85 @@
+﻿@model FinanceCase.Web.ViewModels.ExchangeRatesPageViewModel
+
+@{
+    var pagesToShow = new SortedSet<int>();
+    if (Model.TotalPages > 0)
+    {
+        pagesToShow.Add(1);
+        pagesToShow.Add(Model.TotalPages);
+
+        for (var i = Model.CurrentPage - 1; i <= Model.CurrentPage + 1; i++)
+        {
+            if (i >= 1 && i <= Model.TotalPages)
+            {
+                pagesToShow.Add(i);
+            }
+        }
+    }
+
+    var orderedPages = pagesToShow.OrderBy(x => x).ToList();
+}
+
+<div class="card shadow-sm">
+    <div class="card-body border-bottom d-flex justify-content-between align-items-center small text-muted">
+        <span>Toplam kayıt: <strong>@Model.TotalCount</strong></span>
+        <span>Sayfa @Model.CurrentPage / @Model.TotalPages</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Base</th>
+                        <th>Foreign</th>
+                        <th>Change Rate</th>
+                        <th>Exchange Rate</th>
+                        <th>Cash Change</th>
+                        <th>Cash Exchange</th>
+                        <th>Cross Rate</th>
+                        <th>Current Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Rates)
+                {
+                    <tr>
+                        <td>@item.BaseCurrencyCode</td>
+                        <td>@item.ForeignCurrencyCode</td>
+                        <td>@item.ChangeRate</td>
+                        <td>@item.ExchangeRateValue</td>
+                        <td>@item.CashChangeRate</td>
+                        <td>@item.CashExchangeRate</td>
+                        <td>@item.CrossRate</td>
+                        <td>@item.CurrentDate.ToString("dd.MM.yyyy HH:mm")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-center">
+        <nav aria-label="Kur kayıtları sayfalama">
+            <ul class="pagination mb-0 flex-wrap justify-content-center">
+                <li class="page-item @(Model.CurrentPage == 1 ? "disabled" : string.Empty)">
+                    <a class="page-link" href="#" data-exchange-page="@(Model.CurrentPage - 1)">Önceki</a>
+                </li>
+                @for (var index = 0; index < orderedPages.Count; index++)
+                {
+                    var pageNumber = orderedPages[index];
+
+                    if (index > 0 && pageNumber - orderedPages[index - 1] > 1)
+                    {
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    }
+
+                    <li class="page-item @(pageNumber == Model.CurrentPage ? "active" : string.Empty)">
+                        <a class="page-link" href="#" data-exchange-page="@pageNumber">@pageNumber</a>
+                    </li>
+                }
+                <li class="page-item @(Model.CurrentPage == Model.TotalPages ? "disabled" : string.Empty)">
+                    <a class="page-link" href="#" data-exchange-page="@(Model.CurrentPage + 1)">Sonraki</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>

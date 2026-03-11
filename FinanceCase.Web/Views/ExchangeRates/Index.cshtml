@@ -1,0 +1,73 @@
+﻿@model FinanceCase.Web.ViewModels.ExchangeRatesPageViewModel
+
+@{
+    ViewData["Title"] = "Kur Listesi";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-1">Güncel Kur Kayıtları</h1>
+        <p class="text-muted mb-0">Veritabanına kaydedilen kur verileri</p>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body rounded-4" style="background: linear-gradient(135deg, #eefaf2 0%, #f8fffb 100%); border: 1px solid #cfead6; color: #245c36;">
+        <div class="d-flex align-items-center gap-2 small fw-semibold mb-1">
+            <span style="width:10px; height:10px; border-radius:50%; background:#27ae60; display:inline-block;"></span>
+            Otomatik kur güncellemesi aktif
+        </div>
+        <div class="small">
+            Kur verileri Hangfire ile saatlik olarak güncellenir.
+            @if (Model.LastRateDataAt.HasValue)
+            {
+                <span class="d-inline-block ms-2">
+                    Son veri tarihi: <strong>@Model.LastRateDataAt.Value.ToString("dd.MM.yyyy HH:mm")</strong>
+                </span>
+                <span class="d-inline-block ms-2 text-muted">
+                    API kaydındaki zaman damgası gösterilmektedir.
+                </span>
+            }
+        </div>
+    </div>
+</div>
+
+<div id="exchangeRatesTableContainer">
+    <partial name="_ExchangeRatesTable" model="Model" />
+</div>
+
+@section Scripts {
+    <script>
+        async function loadExchangeRatesPage(page) {
+            const container = document.getElementById('exchangeRatesTableContainer');
+
+            try {
+                const response = await fetch(`/ExchangeRates/Table?page=${page}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                container.innerHTML = await response.text();
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch {
+                // mevcut tablo kalsın
+            }
+        }
+
+        document.addEventListener('click', function (event) {
+            const link = event.target.closest('[data-exchange-page]');
+            if (!link) {
+                return;
+            }
+
+            event.preventDefault();
+            const page = link.getAttribute('data-exchange-page');
+            if (page) {
+                loadExchangeRatesPage(page);
+            }
+        });
+    </script>
+}

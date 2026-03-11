@@ -1,0 +1,106 @@
+﻿@model FinanceCase.Web.ViewModels.CalculationPageViewModel
+@using System.Globalization
+@using System.Text.Json
+
+@{
+    var tr = new CultureInfo("tr-TR");
+    var hasRows = Model.Rows.Count > 0;
+    var firstPeriod = hasRows ? Model.Rows.First().Period : (DateTime?)null;
+    var lastPeriod = hasRows ? Model.Rows.Last().Period : (DateTime?)null;
+    var selectedEndMonth = Model.EndPeriod.HasValue
+        ? new DateTime(Model.EndPeriod.Value.Year, Model.EndPeriod.Value.Month, 1)
+        : (DateTime?)null;
+    var infoClampedToAvailableData = hasRows && selectedEndMonth.HasValue && lastPeriod.HasValue && selectedEndMonth.Value > lastPeriod.Value;
+    var chartPayload = JsonSerializer.Serialize(new
+    {
+        labels = Model.Rows.Select(x => x.Period.ToString("MMM yyyy", tr)),
+        assetSeries = Model.Rows.Select(x => x.AssetAmount),
+        dollarizedSeries = Model.Rows.Select(x => x.DollarizedAssetAmount),
+        inflationSeries = Model.Rows.Select(x => x.InflationAdjustedAssetAmount)
+    });
+    string Tl(decimal value) => value.ToString("C2", tr);
+    string Percent(decimal value) => value.ToString("P2", tr);
+    string DollarRate(decimal value) => value == 0 ? "-" : "$" + value.ToString("N2", tr);
+}
+
+@if (infoClampedToAvailableData)
+{
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body rounded-4 px-3 py-3" style="background: linear-gradient(135deg, #eef6ff 0%, #f7fbff 100%); border: 1px solid #cfe2ff; color: #1f4b7a;">
+            <div class="d-flex align-items-center gap-2 small fw-semibold mb-1">
+                <span style="width:10px; height:10px; border-radius:50%; background:#2f80ed; display:inline-block;"></span>
+                Veri aralığı otomatik uyarlaması
+            </div>
+            <div class="small mb-0">
+                Seçtiğin bitiş tarihi için tam veri bulunmadığından rapor mevcut son veri ayına göre oluşturuldu:
+                <strong>@lastPeriod?.ToString("MMMM yyyy", tr)</strong>
+            </div>
+        </div>
+    </div>
+}
+
+@if (hasRows)
+{
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <canvas id="resultsChart" height="110"></canvas>
+            <script id="resultsChartData" type="application/json">@Html.Raw(chartPayload)</script>
+        </div>
+    </div>
+
+    <p class="text-center small mb-2">
+        Rapor Tarih Aralığı: @firstPeriod?.ToString("MMMM yyyy", tr) - @lastPeriod?.ToString("MMMM yyyy", tr)
+    </p>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm mb-0 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Tarih</th>
+                            <th>Varlık Tarihi Varlık Tutarı</th>
+                            <th>Önceki Aya Göre Varlık Artışı</th>
+                            <th>Varlık Değişim Oranı</th>
+                            <th>Varlık Tarihi Dolar Kuru</th>
+                            <th>Dolarizasyon Varlık Tutarı</th>
+                            <th>Dolarizasyon Önceki Aya Göre Varlık Artışı</th>
+                            <th>Dolarizasyon Varlık Değişim Oranı</th>
+                            <th>Dolarizasyon Etkisi Yüzde</th>
+                            <th>ÜFE Endeks</th>
+                            <th>Enflasyon Varlık Tutarı</th>
+                            <th>Enflasyon Önceki Aya Göre Varlık Artışı</th>
+                            <th>Enflasyon Varlık Değişim Oranı</th>
+                            <th>Enflasyon Etkisi Yüzde</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td>@row.Period.ToString("MMM.yy", tr)</td>
+                            <td>@Tl(row.AssetAmount)</td>
+                            <td>@Tl(row.PreviousMonthAssetIncrease)</td>
+                            <td>@Percent(row.AssetChangeRate)</td>
+                            <td>@DollarRate(row.AssetMonthUsdRate)</td>
+                            <td>@Tl(row.DollarizedAssetAmount)</td>
+                            <td>@Tl(row.PreviousMonthDollarizedIncrease)</td>
+                            <td>@Percent(row.DollarizedChangeRate)</td>
+                            <td>@Percent(row.DollarizationEffectRate)</td>
+                            <td>@row.InflationIndex.ToString("N2", tr)</td>
+                            <td>@Tl(row.InflationAdjustedAssetAmount)</td>
+                            <td>@Tl(row.PreviousMonthInflationAdjustedIncrease)</td>
+                            <td>@Percent(row.InflationAdjustedChangeRate)</td>
+                            <td>@Percent(row.InflationEffectRate)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="alert alert-warning">Seçilen aralık için gösterilecek hesaplama verisi bulunamadı.</div>
+}

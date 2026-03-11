@@ -1,0 +1,168 @@
+﻿@model FinanceCase.Web.ViewModels.CalculationPageViewModel
+
+@{
+    ViewData["Title"] = "Hesaplama Sonuçları";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-1">Hesaplama Sonuçları</h1>
+        <p class="text-muted mb-0">Dolarizasyon ve enflasyon tablosu</p>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4 border-0">
+    <div class="card-body">
+        <form id="calculationFilterForm" method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label" for="startPeriod">Başlangıç Tarihi</label>
+                <input class="form-control" type="date" id="startPeriod" name="startPeriod" value="@(Model.StartPeriod?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="endPeriod">Bitiş Tarihi</label>
+                <input class="form-control" type="date" id="endPeriod" name="endPeriod" value="@(Model.EndPeriod?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-md-4 d-grid">
+                <button type="submit" class="btn btn-primary">Raporu Getir</button>
+            </div>
+        </form>
+        <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">
+            <span>Bu sayfa açık kaldığında sonuç alanı periyodik olarak yenilenir.</span>
+            <span>Son ekran yenileme: <strong id="lastRefreshTime">-</strong></span>
+        </div>
+    </div>
+</div>
+
+<div id="resultsContainer">
+    <partial name="_ResultsContent" model="Model" />
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let resultsChartInstance = null;
+
+        function updateLastRefreshLabel() {
+            const target = document.getElementById('lastRefreshTime');
+            if (!target) {
+                return;
+            }
+
+            target.textContent = new Intl.DateTimeFormat('tr-TR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).format(new Date());
+        }
+
+        function initializeResultsChart() {
+            const chartDataElement = document.getElementById('resultsChartData');
+            const canvas = document.getElementById('resultsChart');
+
+            if (!chartDataElement || !canvas) {
+                if (resultsChartInstance) {
+                    resultsChartInstance.destroy();
+                    resultsChartInstance = null;
+                }
+                return;
+            }
+
+            const chartData = JSON.parse(chartDataElement.textContent);
+            const ctx = canvas.getContext('2d');
+
+            if (resultsChartInstance) {
+                resultsChartInstance.destroy();
+            }
+
+            resultsChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [
+                        {
+                            label: 'Varlık Tutarı',
+                            data: chartData.assetSeries,
+                            borderColor: '#2f80ed',
+                            backgroundColor: 'rgba(47, 128, 237, 0.18)',
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 2,
+                            pointHoverRadius: 4
+                        },
+                        {
+                            label: 'Dolarizasyon Varlık',
+                            data: chartData.dollarizedSeries,
+                            borderColor: '#f2994a',
+                            backgroundColor: 'rgba(242, 153, 74, 0.08)',
+                            fill: false,
+                            tension: 0.35,
+                            pointRadius: 2,
+                            pointHoverRadius: 4
+                        },
+                        {
+                            label: 'Enflasyon Varlık',
+                            data: chartData.inflationSeries,
+                            borderColor: '#eb5757',
+                            backgroundColor: 'rgba(235, 87, 87, 0.08)',
+                            fill: false,
+                            tension: 0.35,
+                            pointRadius: 2,
+                            pointHoverRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return new Intl.NumberFormat('tr-TR', {
+                                        style: 'currency',
+                                        currency: 'TRY',
+                                        maximumFractionDigits: 0
+                                    }).format(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function refreshResultsSilently() {
+            const form = document.getElementById('calculationFilterForm');
+            const container = document.getElementById('resultsContainer');
+            const params = new URLSearchParams(new FormData(form));
+
+            try {
+                const response = await fetch(`/Calculation/LiveResults?${params.toString()}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                container.innerHTML = await response.text();
+                initializeResultsChart();
+                updateLastRefreshLabel();
+            } catch {
+                // veri degisse de sayfa tam yenilenmeden sadece sonuc alani guncellenir
+            }
+        }
+
+        initializeResultsChart();
+        updateLastRefreshLabel();
+        window.setInterval(refreshResultsSilently, 60000);
+    </script>
+}

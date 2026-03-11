@@ -1,0 +1,42 @@
+﻿@model FinanceCase.Web.ViewModels.ImportFilesViewModel
+
+@{
+    ViewData["Title"] = "Veri Yükleme";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h1 class="h3 mb-3">Excel Veri Yükleme</h1>
+                <p class="text-muted">Varlık tablosu ve ÜFE endeks tablosunu birlikte yükleyin.</p>
+
+                @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+                {
+                    <div class="alert alert-success">@Model.SuccessMessage</div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+                {
+                    <div class="alert alert-danger">@Model.ErrorMessage</div>
+                }
+
+                <form asp-action="Index" method="post" enctype="multipart/form-data" class="row g-3">
+                    <div class="col-12">
+                        <label asp-for="AssetFile" class="form-label">Varlık Dosyası</label>
+                        <input asp-for="AssetFile" class="form-control" accept=".xls,.xlsx" />
+                    </div>
+
+                    <div class="col-12">
+                        <label asp-for="InflationFile" class="form-label">ÜFE Endeks Dosyası</label>
+                        <input asp-for="InflationFile" class="form-control" accept=".xls,.xlsx" />
+                    </div>
+
+                    <div class="col-12 d-grid">
+                        <button type="submit" class="btn btn-primary">Dosyaları Yükle</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

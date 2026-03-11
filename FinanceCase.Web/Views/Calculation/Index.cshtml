@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = "Hesaplama Sonuçları";
+    var hasActiveFilter = Model.StartPeriod.HasValue || Model.EndPeriod.HasValue;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -22,8 +23,14 @@
                 <label class="form-label" for="endPeriod">Bitiş Tarihi</label>
                 <input class="form-control" type="date" id="endPeriod" name="endPeriod" value="@(Model.EndPeriod?.ToString("yyyy-MM-dd"))" />
             </div>
-            <div class="col-md-4 d-grid">
-                <button type="submit" class="btn btn-primary">Raporu Getir</button>
+            <div class="col-md-4">
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Raporu Getir</button>
+                    @if (hasActiveFilter)
+                    {
+                        <a class="btn btn-outline-secondary" asp-controller="Calculation" asp-action="Index">Tüm Verileri Göster</a>
+                    }
+                </div>
             </div>
         </form>
         <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">

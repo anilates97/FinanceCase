@@ -4,11 +4,16 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FinanceCase.Web.Controllers;
 
-public class CalculationController(ICalculationService calculationService) : Controller
+public class CalculationController(ICalculationService calculationService, IAppStateService appStateService) : Controller
 {
     [HttpGet]
     public async Task<IActionResult> Index(DateTime? startPeriod, DateTime? endPeriod)
     {
+        if (!await appStateService.IsDataReadyAsync())
+        {
+            return RedirectToAction("Index", "Import");
+        }
+
         var model = await BuildPageModelAsync(startPeriod, endPeriod);
         return View(model);
     }
@@ -16,6 +21,11 @@ public class CalculationController(ICalculationService calculationService) : Con
     [HttpGet]
     public async Task<IActionResult> LiveResults(DateTime? startPeriod, DateTime? endPeriod)
     {
+        if (!await appStateService.IsDataReadyAsync())
+        {
+            return RedirectToAction("Index", "Import");
+        }
+
         var model = await BuildPageModelAsync(startPeriod, endPeriod);
         return PartialView("_ResultsContent", model);
     }

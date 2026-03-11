@@ -15,6 +15,10 @@ Uygulamada şu akış var:
 
 - Kur verileri verilen servisten çekilip veritabanına yazılıyor
 - Varlık ve ÜFE verileri Excel dosyasından içeri alınıyor
+- İçe aktarılan veri aralığına göre geçmiş kur verileri otomatik olarak senkronlanıyor
+- İlk açılışta kullanıcı doğrudan veri yükleme ekranına yönlendiriliyor
+- Veri yükleme tamamlandıktan sonra kullanıcı kısa bir sayaç sonrası otomatik olarak kurlar ekranına yönlendiriliyor
+- Veri yüklenmeden kurlar ve sonuçlar ekranları menüde gösterilmiyor
 - Dolarizasyon ve enflasyonizasyon hesapları yapılıyor
 - Sonuçlar tablo ve grafik olarak gösteriliyor
 
@@ -44,6 +48,10 @@ Not: Case metninde XML ifadesi geçiyor ama gönderilen örnek dosyalar Excel ol
 - Kur verisini servisten çekme ve MSSQL’e kaydetme
 - Hangfire ile saatlik güncelleme
 - Varlık ve ÜFE Excel dosyalarını içeri alma
+- İçe aktarılan tarih aralığına göre geçmiş kur verilerini otomatik çekme
+- İlk açılışta kullanıcıyı veri yükleme ekranına yönlendirme
+- Veri yüklendikten sonra kurlar ekranına otomatik yönlendirme
+- Veri hazır değilken kurlar ve sonuçlar menüsünü gizleme
 - Hatalı dosya yüklenirse kullanıcıya düzgün hata mesajı gösterme
 - Dolarizasyon ve enflasyonizasyon hesaplarını yapma
 - Sonuçları tabloda ve grafikte gösterme
@@ -79,7 +87,11 @@ dotnet ef database update --project FinanceCase.Web
 dotnet run --project FinanceCase.Web
 ```
 
-### 6. API projesini çalıştırma
+### 6. İlk veri yükleme
+
+Uygulama açıldığında ilk olarak veri yükleme ekranı gelir. Varlık ve ÜFE dosyaları yüklendikten sonra ilgili tarih aralığındaki kur verileri otomatik olarak çekilir ve kullanıcı kurlar ekranına yönlendirilir.
+
+### 7. API projesini çalıştırma
 
 ```bash
 dotnet run --project FinanceCase.Api

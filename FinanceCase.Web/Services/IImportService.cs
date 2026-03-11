@@ -4,6 +4,12 @@ namespace FinanceCase.Web.Services;
 
 public interface IImportService
 {
-    Task<int> ImportAssetRecordsAsync(IFormFile assetFile);
-    Task<int> ImportInflationIndexRecordsAsync(IFormFile inflationFile);
+    Task<ImportSummary> ImportAsync(IFormFile assetFile, IFormFile inflationFile);
 }
+
+public sealed record ImportSummary(
+    int AssetCount,
+    int InflationCount,
+    int SyncedExchangeRateCount,
+    DateTime StartPeriod,
+    DateTime EndPeriod);

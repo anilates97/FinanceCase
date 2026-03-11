@@ -9,11 +9,19 @@
         <div class="card shadow-sm">
             <div class="card-body p-4">
                 <h1 class="h3 mb-3">Excel Veri Yükleme</h1>
-                <p class="text-muted">Varlık tablosu ve ÜFE endeks tablosunu birlikte yükleyin.</p>
+                <p class="text-muted">Varlık tablosu ve ÜFE endeks tablosunu birlikte yükleyin. Yükleme sonrası ilgili tarih aralığının kur verileri otomatik senkronlanır.</p>
 
                 @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
                 {
-                    <div class="alert alert-success">@Model.SuccessMessage</div>
+                    <div class="alert alert-success">
+                        <div>@Model.SuccessMessage</div>
+                        @if (Model.ShouldRedirectToExchangeRates)
+                        {
+                            <div class="mt-2 small fw-semibold">
+                                <span id="redirectCountdown">@Model.RedirectDelaySeconds</span> saniye içinde Kurlar sayfasına yönlendiriliyorsunuz...
+                            </div>
+                        }
+                    </div>
                 }
 
                 @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
@@ -40,3 +48,32 @@
         </div>
     </div>
 </div>
+
+@if (Model.ShouldRedirectToExchangeRates)
+{
+    @section Scripts {
+        <script>
+            (() => {
+                const countdownElement = document.getElementById('redirectCountdown');
+                if (!countdownElement) {
+                    return;
+                }
+
+                let secondsRemaining = Number(countdownElement.textContent);
+
+                // başarılı import sonrası kullanıcıyı otomatik olarak kurlar ekranına yönlendirir
+                const intervalId = window.setInterval(() => {
+                    secondsRemaining -= 1;
+
+                    if (secondsRemaining <= 0) {
+                        window.clearInterval(intervalId);
+                        window.location.href = '@Url.Action("Index", "ExchangeRates")';
+                        return;
+                    }
+
+                    countdownElement.textContent = String(secondsRemaining);
+                }, 1000);
+            })();
+        </script>
+    }
+}

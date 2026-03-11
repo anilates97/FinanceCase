@@ -24,9 +24,10 @@ public class ImportController(IImportService importService) : Controller
 
         try
         {
-            var assetCount = await importService.ImportAssetRecordsAsync(model.AssetFile);
-            var inflationCount = await importService.ImportInflationIndexRecordsAsync(model.InflationFile);
-            model.SuccessMessage = $"İçe aktarım tamamlandı. Varlık satırı: {assetCount}, ÜFE satırı: {inflationCount}";
+            var summary = await importService.ImportAsync(model.AssetFile, model.InflationFile);
+            model.SuccessMessage = $"İçe aktarım tamamlandı. Varlık satırı: {summary.AssetCount}, ÜFE satırı: {summary.InflationCount}, senkronlanan kur kaydı: {summary.SyncedExchangeRateCount}. Kur aralığı: {summary.StartPeriod:MM.yyyy} - {summary.EndPeriod:MM.yyyy}";
+            model.ShouldRedirectToExchangeRates = true;
+            model.RedirectDelaySeconds = 3;
         }
         catch (InvalidOperationException ex)
         {

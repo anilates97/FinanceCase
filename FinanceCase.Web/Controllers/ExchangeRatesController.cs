@@ -1,14 +1,20 @@
 ﻿using FinanceCase.Web.Data;
+using FinanceCase.Web.Services;
 using FinanceCase.Web.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace FinanceCase.Web.Controllers;
 
-public class ExchangeRatesController(ApplicationDbContext dbContext) : Controller
+public class ExchangeRatesController(ApplicationDbContext dbContext, IAppStateService appStateService) : Controller
 {
     public async Task<IActionResult> Index(int page = 1)
     {
+        if (!await appStateService.IsDataReadyAsync())
+        {
+            return RedirectToAction("Index", "Import");
+        }
+
         var model = await BuildModelAsync(page);
         return View(model);
     }
@@ -16,6 +22,11 @@ public class ExchangeRatesController(ApplicationDbContext dbContext) : Controlle
     [HttpGet]
     public async Task<IActionResult> Table(int page = 1)
     {
+        if (!await appStateService.IsDataReadyAsync())
+        {
+            return RedirectToAction("Index", "Import");
+        }
+
         var model = await BuildModelAsync(page);
         return PartialView("_ExchangeRatesTable", model);
     }

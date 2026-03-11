@@ -1,4 +1,6 @@
-﻿<!DOCTYPE html>
+﻿@using FinanceCase.Web.Services
+@inject IAppStateService AppStateService
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="utf-8" />
@@ -10,10 +12,11 @@
     <link rel="stylesheet" href="~/FinanceCase.Web.styles.css" asp-append-version="true" />
 </head>
 <body>
+    @{ var isDataReady = await AppStateService.IsDataReadyAsync(); }
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="ExchangeRates" asp-action="Index">FinanceCase App</a>
+                <a class="navbar-brand" asp-area="" asp-controller="@(isDataReady ? "ExchangeRates" : "Import")" asp-action="Index">FinanceCase App</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -21,14 +24,17 @@
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="ExchangeRates" asp-action="Index">Kurlar</a>
-                        </li>
-                        <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Import" asp-action="Index">İçe Aktarım</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Calculation" asp-action="Index">Sonuçlar</a>
-                        </li>
+                        @if (isDataReady)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="ExchangeRates" asp-action="Index">Kurlar</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Calculation" asp-action="Index">Sonuçlar</a>
+                            </li>
+                        }
                     </ul>
                 </div>
             </div>

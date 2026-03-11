@@ -8,9 +8,41 @@ using System.Globalization;
 
 namespace FinanceCase.Web.Services;
 
-public class ImportService(ApplicationDbContext dbContext) : IImportService
+public class ImportService(ApplicationDbContext dbContext, IExchangeRateService exchangeRateService) : IImportService
 {
-    public async Task<int> ImportAssetRecordsAsync(IFormFile assetFile)
+    public async Task<ImportSummary> ImportAsync(IFormFile assetFile, IFormFile inflationFile)
+    {
+        var assetRecords = ReadAssetRecords(assetFile);
+        var inflationRecords = ReadInflationIndexRecords(inflationFile);
+
+        dbContext.AssetRecords.RemoveRange(dbContext.AssetRecords);
+        dbContext.InflationIndexRecords.RemoveRange(dbContext.InflationIndexRecords);
+
+        await dbContext.AssetRecords.AddRangeAsync(assetRecords);
+        await dbContext.InflationIndexRecords.AddRangeAsync(inflationRecords);
+        await dbContext.SaveChangesAsync();
+
+        var startPeriod = assetRecords.Select(x => x.Period)
+            .Concat(inflationRecords.Select(x => x.Period))
+            .Min();
+        var endPeriod = assetRecords.Select(x => x.Period)
+            .Concat(inflationRecords.Select(x => x.Period))
+            .Max();
+
+        // dosya yüklendikten sonra hesaplama için gerekli tarih aralığındaki kur verileri de senkronlanır
+        var syncedExchangeRateCount = await exchangeRateService.FetchAndSaveRatesAsync(
+            new DateTime(startPeriod.Year, startPeriod.Month, 1),
+            new DateTime(endPeriod.Year, endPeriod.Month, DateTime.DaysInMonth(endPeriod.Year, endPeriod.Month)));
+
+        return new ImportSummary(
+            assetRecords.Count,
+            inflationRecords.Count,
+            syncedExchangeRateCount,
+            startPeriod,
+            endPeriod);
+    }
+
+    private static List<AssetRecord> ReadAssetRecords(IFormFile assetFile)
     {
         ValidateExcelExtension(assetFile, "Varlık dosyası");
 
@@ -51,14 +83,10 @@ public class ImportService(ApplicationDbContext dbContext) : IImportService
             throw new InvalidOperationException("Varlık dosyasında içe aktarılabilir kayıt bulunamadı. Lütfen örnek şablona uygun bir dosya yükleyin.");
         }
 
-        dbContext.AssetRecords.RemoveRange(dbContext.AssetRecords);
-        await dbContext.AssetRecords.AddRangeAsync(records);
-        await dbContext.SaveChangesAsync();
-
-        return records.Count;
+        return records;
     }
 
-    public async Task<int> ImportInflationIndexRecordsAsync(IFormFile inflationFile)
+    private static List<InflationIndexRecord> ReadInflationIndexRecords(IFormFile inflationFile)
     {
         ValidateExcelExtension(inflationFile, "ÜFE dosyası");
 
@@ -105,11 +133,7 @@ public class ImportService(ApplicationDbContext dbContext) : IImportService
             throw new InvalidOperationException("ÜFE dosyasında içe aktarılabilir kayıt bulunamadı. Lütfen örnek şablona uygun bir dosya yükleyin.");
         }
 
-        dbContext.InflationIndexRecords.RemoveRange(dbContext.InflationIndexRecords);
-        await dbContext.InflationIndexRecords.AddRangeAsync(records);
-        await dbContext.SaveChangesAsync();
-
-        return records.Count;
+        return records;
     }
 
     private static void ValidateExcelExtension(IFormFile file, string fileLabel)
@@ -124,12 +148,10 @@ public class ImportService(ApplicationDbContext dbContext) : IImportService
     private static void ValidateAssetSheet(ISheet sheet)
     {
         var headerRow = sheet.GetRow(0);
-        var firstHeader = headerRow?.GetCell(0)?.ToString()?.Trim();
-        var secondHeader = headerRow?.GetCell(1)?.ToString()?.Trim();
+        var firstHeader = NormalizeText(headerRow?.GetCell(0)?.ToString());
+        var secondHeader = NormalizeText(headerRow?.GetCell(1)?.ToString());
 
-        // varlık dosyası daha basit bir iki kolon yapısı ile okunur
-        if (!string.Equals(firstHeader, "Tarih", StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(secondHeader, "Varlık Tutarı", StringComparison.OrdinalIgnoreCase))
+        if (firstHeader != "tarih" || secondHeader != "varlik tutari")
         {
             throw new InvalidOperationException("Varlık dosyası beklenen şablonda değil. İlk iki sütun 'Tarih' ve 'Varlık Tutarı' olmalıdır.");
         }
@@ -142,20 +164,43 @@ public class ImportService(ApplicationDbContext dbContext) : IImportService
         for (var rowIndex = 0; rowIndex <= Math.Min(sheet.LastRowNum, 10); rowIndex++)
         {
             var row = sheet.GetRow(rowIndex);
-            var firstCell = row?.GetCell(0)?.ToString()?.Trim();
-            if (string.Equals(firstCell, "Yıl", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(firstCell, "Year", StringComparison.OrdinalIgnoreCase))
+            var firstCell = NormalizeText(row?.GetCell(0)?.ToString());
+            if (firstCell is "yil" or "year")
             {
                 hasYearHeader = true;
                 break;
             }
         }
 
-        // üfe dosyasında tablo üstünde açıklama satırları olduğu için önce başlık aranır
         if (!hasYearHeader)
         {
             throw new InvalidOperationException("ÜFE dosyası beklenen şablonda değil. 'Yıl/Year' başlığını içeren endeks tablosu yükleyin.");
         }
+    }
+
+    private static string NormalizeText(string? value)
+    {
+        return (value ?? string.Empty)
+            .Trim()
+            .Replace('\u0131', 'i')
+            .Replace('\u0130', 'I')
+            .Replace('\u00FC', 'u')
+            .Replace('\u00DC', 'U')
+            .Replace('\u011F', 'g')
+            .Replace('\u011E', 'G')
+            .Replace('\u015F', 's')
+            .Replace('\u015E', 'S')
+            .Replace('\u00F6', 'o')
+            .Replace('\u00D6', 'O')
+            .Replace('\u00E7', 'c')
+            .Replace('\u00C7', 'C')
+            .Replace('\u00FD', 'i')
+            .Replace('\u00DD', 'I')
+            .Replace('\u00FE', 's')
+            .Replace('\u00DE', 'S')
+            .Replace('\u00F0', 'g')
+            .Replace('\u00D0', 'G')
+            .ToLowerInvariant();
     }
 
     private static IWorkbook OpenWorkbook(IFormFile file)

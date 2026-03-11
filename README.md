@@ -24,6 +24,28 @@ Uygulamada şu akış var:
 
 Kur verilerinin belirli aralıklarla güncellenmesi için Hangfire kullanıldı.
 
+## Ekran Görüntüleri
+
+### Veri Yükleme
+
+![Veri yükleme ekranı](FinanceCase.Web/screenshots/import-page.png)
+
+### Başarılı Yükleme ve Yönlendirme
+
+![Başarılı yükleme ekranı](FinanceCase.Web/screenshots/import-success.png)
+
+### Kur Kayıtları
+
+![Kur kayıtları ekranı](FinanceCase.Web/screenshots/exchange-rates.png)
+
+### Sonuç Grafiği
+
+![Sonuç grafik ekranı](FinanceCase.Web/screenshots/results-chart.png)
+
+### Sonuç Tablosu
+
+![Sonuç tablo ekranı](FinanceCase.Web/screenshots/results-table.png)
+
 ## Kullanılan Teknolojiler
 
 - .NET 10
@@ -52,6 +74,7 @@ Not: Case metninde XML ifadesi geçiyor ama gönderilen örnek dosyalar Excel ol
 - İlk açılışta kullanıcıyı veri yükleme ekranına yönlendirme
 - Veri yüklendikten sonra kurlar ekranına otomatik yönlendirme
 - Veri hazır değilken kurlar ve sonuçlar menüsünü gizleme
+- Development ortamında tüm test verilerini temizleme butonu ekleme
 - Hatalı dosya yüklenirse kullanıcıya düzgün hata mesajı gösterme
 - Dolarizasyon ve enflasyonizasyon hesaplarını yapma
 - Sonuçları tabloda ve grafikte gösterme

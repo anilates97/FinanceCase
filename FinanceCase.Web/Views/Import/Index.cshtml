@@ -1,4 +1,5 @@
 ﻿@model FinanceCase.Web.ViewModels.ImportFilesViewModel
+@inject IWebHostEnvironment Environment
 
 @{
     ViewData["Title"] = "Veri Yükleme";
@@ -8,8 +9,20 @@
     <div class="col-lg-8">
         <div class="card shadow-sm">
             <div class="card-body p-4">
-                <h1 class="h3 mb-3">Excel Veri Yükleme</h1>
-                <p class="text-muted">Varlık tablosu ve ÜFE endeks tablosunu birlikte yükleyin. Yükleme sonrası ilgili tarih aralığının kur verileri otomatik senkronlanır.</p>
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mb-3">
+                    <div>
+                        <h1 class="h3 mb-2">Excel Veri Yükleme</h1>
+                        <p class="text-muted mb-0">Varlık tablosu ve ÜFE endeks tablosunu birlikte yükleyin. Yükleme sonrası ilgili tarih aralığının kur verileri otomatik senkronlanır.</p>
+                    </div>
+
+                    @if (Environment.IsDevelopment())
+                    {
+                        <form asp-action="ClearData" method="post" onsubmit="return confirm('Tüm veriler silinsin mi?');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-outline-danger">Tüm Verileri Temizle</button>
+                        </form>
+                    }
+                </div>
 
                 @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
                 {
@@ -22,6 +35,11 @@
                             </div>
                         }
                     </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.InfoMessage))
+                {
+                    <div class="alert alert-info">@Model.InfoMessage</div>
                 }
 
                 @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))

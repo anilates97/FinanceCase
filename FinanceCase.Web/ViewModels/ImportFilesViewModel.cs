@@ -8,6 +8,7 @@ public class ImportFilesViewModel
     public IFormFile? InflationFile { get; set; }
     public string? SuccessMessage { get; set; }
     public string? ErrorMessage { get; set; }
+    public string? InfoMessage { get; set; }
     public bool ShouldRedirectToExchangeRates { get; set; }
     public int RedirectDelaySeconds { get; set; } = 3;
 }

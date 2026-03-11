@@ -1,10 +1,12 @@
-﻿using FinanceCase.Web.Services;
+﻿using FinanceCase.Web.Data;
+using FinanceCase.Web.Services;
 using FinanceCase.Web.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace FinanceCase.Web.Controllers;
 
-public class ImportController(IImportService importService) : Controller
+public class ImportController(IImportService importService, ApplicationDbContext dbContext, IWebHostEnvironment environment) : Controller
 {
     [HttpGet]
     public IActionResult Index()
@@ -43,5 +45,25 @@ public class ImportController(IImportService importService) : Controller
         }
 
         return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ClearData()
+    {
+        if (!environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        dbContext.AssetRecords.RemoveRange(dbContext.AssetRecords);
+        dbContext.InflationIndexRecords.RemoveRange(dbContext.InflationIndexRecords);
+        dbContext.ExchangeRates.RemoveRange(dbContext.ExchangeRates);
+        await dbContext.SaveChangesAsync();
+
+        return View("Index", new ImportFilesViewModel
+        {
+            InfoMessage = "Tüm veriler temizlendi. Yeni test için dosyaları tekrar yükleyebilirsiniz."
+        });
     }
 }

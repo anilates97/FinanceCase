@@ -1,125 +1,222 @@
-﻿# FinanceCase
+# FinanceCase
 
-Bu proje, verilen case için hazırladığım ASP.NET Core çözümüdür.
+FinanceCase is a financial management application built with ASP.NET Core MVC and Web API architecture.
 
-Solution içinde 2 proje bulunuyor:
+The project includes financial data import, exchange rate synchronization, inflation-based calculations and reporting features. It allows users to upload Excel datasets, automatically synchronize exchange rate data and analyze financial results through tables and charts.
+
+The solution consists of two separate projects:
 
 - `FinanceCase.Web`
 - `FinanceCase.Api`
 
-Web tarafında veri yükleme, hesaplama ve sonuç ekranları yer alıyor. API tarafında ise güncel kur verilerini dışarı veren basit bir endpoint bulunuyor.
+---
 
-## Proje Özeti
+# Project Overview
 
-Uygulamada şu akış var:
+The application follows a financial data processing workflow:
 
-- Kur verileri verilen servisten çekilip veritabanına yazılıyor
-- Varlık ve ÜFE verileri Excel dosyasından içeri alınıyor
-- İçe aktarılan veri aralığına göre geçmiş kur verileri otomatik olarak senkronlanıyor
-- İlk açılışta kullanıcı doğrudan veri yükleme ekranına yönlendiriliyor
-- Veri yükleme tamamlandıktan sonra kullanıcı kısa bir sayaç sonrası otomatik olarak kurlar ekranına yönlendiriliyor
-- Veri yüklenmeden kurlar ve sonuçlar ekranları menüde gösterilmiyor
-- Dolarizasyon ve enflasyonizasyon hesapları yapılıyor
-- Sonuçlar tablo ve grafik olarak gösteriliyor
+- Exchange rate data is fetched from an external service and stored in SQL Server
+- Asset and inflation datasets are imported from Excel files
+- Historical exchange rate data is automatically synchronized based on imported date ranges
+- Users are redirected to the import screen on first launch
+- Exchange rate and result pages remain hidden until data import is completed
+- Financial calculations are processed automatically
+- Results are displayed through tables and chart-based reports
 
-Kur verilerinin belirli aralıklarla güncellenmesi için Hangfire kullanıldı.
+Hangfire is used for scheduled background synchronization of exchange rate data.
 
-## Ekran Görüntüleri
+---
 
-### Veri Yükleme
+# Key Features
 
-![Veri yükleme ekranı](FinanceCase.Web/screenshots/import-page.png)
+- Excel-based asset and inflation data import
+- Automatic exchange rate synchronization
+- Financial calculation and reporting system
+- Dollarization and inflationization calculations
+- Hangfire background jobs for scheduled updates
+- Chart and table-based result visualization
+- Pagination support for exchange rate records
+- Responsive dashboard interfaces
+- REST API endpoint for exchange rate data
+- User-friendly error handling for invalid file uploads
+- Automatic page redirection and onboarding flow
 
-### Başarılı Yükleme ve Yönlendirme
+---
 
-![Başarılı yükleme ekranı](FinanceCase.Web/screenshots/import-success.png)
+# Screenshots
 
-### Kur Kayıtları
+## Data Import Screen
 
-![Kur kayıtları ekranı](FinanceCase.Web/screenshots/exchange-rates.png)
+![Data Import Screen](FinanceCase.Web/screenshots/import-page.png)
 
-### Sonuç Grafiği
+## Successful Upload & Redirect
 
-![Sonuç grafik ekranı](FinanceCase.Web/screenshots/results-chart.png)
+![Successful Upload](FinanceCase.Web/screenshots/import-success.png)
 
-### Sonuç Tablosu
+## Exchange Rate Records
 
-![Sonuç tablo ekranı](FinanceCase.Web/screenshots/results-table.png)
+![Exchange Rates](FinanceCase.Web/screenshots/exchange-rates.png)
 
-## Kullanılan Teknolojiler
+## Results Chart
 
-- .NET 10
+![Results Chart](FinanceCase.Web/screenshots/results-chart.png)
+
+## Results Table
+
+![Results Table](FinanceCase.Web/screenshots/results-table.png)
+
+---
+
+# Technologies Used
+
+## Backend
 - ASP.NET Core MVC
 - ASP.NET Core Web API
 - Entity Framework Core
-- SQL Server / SQLEXPRESS
+- REST API
 - Hangfire
 - NPOI
+
+## Database
+- SQL Server / SQLEXPRESS
+
+## Frontend
+- HTML5
+- CSS3
+- JavaScript
 - Chart.js
 
-## Veri Kaynakları
+## Tools
+- .NET 10
+- Git
+- GitHub
 
-- Kur servisi: `https://testapi.finmaks.com/ExchangeRates?key=Finmaks123`
-- Varlık verisi: `.xls` / `.xlsx`
-- ÜFE verisi: `.xls` / `.xlsx`
+---
 
-Not: Case metninde XML ifadesi geçiyor ama gönderilen örnek dosyalar Excel olduğu için import kısmını Excel üzerinden yaptım.
+# Application Flow
 
-## Yapılanlar
+1. User uploads asset and inflation Excel files
+2. Imported date ranges are analyzed
+3. Historical exchange rate data is automatically synchronized
+4. Financial calculations are processed
+5. Results are displayed through charts and tables
+6. Hangfire periodically updates exchange rate records in the background
 
-- Kur verisini servisten çekme ve MSSQL’e kaydetme
-- Hangfire ile saatlik güncelleme
-- Varlık ve ÜFE Excel dosyalarını içeri alma
-- İçe aktarılan tarih aralığına göre geçmiş kur verilerini otomatik çekme
-- İlk açılışta kullanıcıyı veri yükleme ekranına yönlendirme
-- Veri yüklendikten sonra kurlar ekranına otomatik yönlendirme
-- Veri hazır değilken kurlar ve sonuçlar menüsünü gizleme
-- Development ortamında tüm test verilerini temizleme butonu ekleme
-- Hatalı dosya yüklenirse kullanıcıya düzgün hata mesajı gösterme
-- Dolarizasyon ve enflasyonizasyon hesaplarını yapma
-- Sonuçları tabloda ve grafikte gösterme
-- Sonuç ekranını sayfa yenilenmeden belirli aralıklarla güncelleme
-- Aynı solution içinde ayrı API projesi ile güncel kur verisini dışarı verme
-- Kurlar ekranında pagination
+---
 
-## Kurulum
+# Data Sources
 
-### 1. SQL Server
+- Exchange Rate API  
+  `https://testapi.finmaks.com/ExchangeRates?key=Finmaks123`
 
-Bilgisayarda SQL Server / SQLEXPRESS çalışıyor olmalı.
+- Asset Data  
+  `.xls` / `.xlsx`
 
-### 2. Solution açma
+- Inflation Data  
+  `.xls` / `.xlsx`
 
-Kök dizindeki `FinanceCase.slnx` dosyası açılabilir.
+> Note: The original case documentation referenced XML imports, but the provided sample datasets were Excel files. Therefore, the import system was implemented using Excel-based processing.
 
-### 3. Paketleri yükleme
+---
+
+# Implemented Features
+
+- Exchange rate synchronization and MSSQL persistence
+- Hourly background updates using Hangfire
+- Excel import for asset and inflation datasets
+- Automatic historical exchange rate synchronization
+- Import-first onboarding workflow
+- Automatic navigation after successful data import
+- Dynamic menu visibility based on application state
+- Development-only data cleanup functionality
+- User-friendly validation and error messages
+- Financial calculation engine
+- Chart and table-based reporting
+- AJAX-based result screen updates
+- Separate API project for exchange rate endpoints
+- Pagination support for exchange rate records
+
+---
+
+# Installation
+
+## 1. SQL Server Setup
+
+Make sure SQL Server or SQLEXPRESS is installed and running.
+
+---
+
+## 2. Restore Packages
 
 ```bash
 dotnet restore FinanceCase.slnx
 ```
 
-### 4. Veritabanını oluşturma
+---
+
+## 3. Apply Database Migrations
 
 ```bash
 dotnet ef database update --project FinanceCase.Web
 ```
 
-### 5. Web projesini çalıştırma
+---
+
+## 4. Run the Web Application
 
 ```bash
 dotnet run --project FinanceCase.Web
 ```
 
-### 6. İlk veri yükleme
+---
 
-Uygulama açıldığında ilk olarak veri yükleme ekranı gelir. Varlık ve ÜFE dosyaları yüklendikten sonra ilgili tarih aralığındaki kur verileri otomatik olarak çekilir ve kullanıcı kurlar ekranına yönlendirilir.
+## 5. Initial Data Import
 
-### 7. API projesini çalıştırma
+When the application starts, users are redirected to the import page.
+
+After uploading asset and inflation Excel files:
+
+- Exchange rate data is automatically synchronized
+- Financial calculations are processed
+- Users are redirected to the exchange rates page
+
+---
+
+## 6. Run the API Project
 
 ```bash
 dotnet run --project FinanceCase.Api
 ```
 
-## Örnek Dosyalar
+---
 
-`FinanceCase.Web/SampleFiles/` klasörü içinde örnek Excel dosyaları bulunuyor. İstenirse test amaçlı kullanılabilir.
+# Sample Files
+
+Example Excel files are available under:
+
+```text
+FinanceCase.Web/SampleFiles/
+```
+
+These files can be used for testing purposes.
+
+---
+
+# Future Improvements
+
+- Authentication and authorization system
+- Docker support
+- Exportable PDF/Excel reports
+- Advanced filtering and analytics
+- Unit and integration testing
+- Role-based admin management
+
+---
+
+# Developer
+
+Anıl Hasan Ateş
+
+- LinkedIn: https://linkedin.com/in/anilates97
+- GitHub: https://github.com/anilates97
+- Portfolio: https://anilates.vercel.app/

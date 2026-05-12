@@ -14,6 +14,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<ExchangeRate>()
+            .HasIndex(x => new { x.BaseCurrencyCode, x.ForeignCurrencyCode, x.CurrentDate })
+            .IsUnique();
+
+        modelBuilder.Entity<ExchangeRate>()
             .Property(x => x.ChangeRate)
             .HasPrecision(18, 6);
 
@@ -42,8 +46,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasPrecision(18, 6);
 
         modelBuilder.Entity<AssetRecord>()
+            .HasIndex(x => x.Period)
+            .IsUnique();
+
+        modelBuilder.Entity<AssetRecord>()
             .Property(x => x.AssetAmount)
             .HasPrecision(18, 2);
+
+        modelBuilder.Entity<InflationIndexRecord>()
+            .HasIndex(x => x.Period)
+            .IsUnique();
 
         modelBuilder.Entity<InflationIndexRecord>()
             .Property(x => x.IndexValue)

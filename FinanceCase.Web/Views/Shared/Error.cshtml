@@ -1,25 +1,25 @@
-﻿@model ErrorViewModel
+@model ErrorViewModel
 @{
-    ViewData["Title"] = "Error";
+    ViewData["Title"] = "Operational Error";
 }
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
+<div class="dashboard-card error-panel">
+    <div class="card-section">
+        <p class="eyebrow">System Event</p>
+        <h1>We could not complete this operation.</h1>
+        <p>The platform encountered an unexpected processing issue. No partial workflow state is shown here; please retry the operation or return to the import pipeline.</p>
 
-@if (Model.ShowRequestId)
-{
-    <p>
-        <strong>Request ID:</strong> <code>@Model.RequestId</code>
-    </p>
-}
+        @if (Model.ShowRequestId)
+        {
+            <div class="request-id">
+                <span class="metric-label">Request ID</span>
+                <code>@Model.RequestId</code>
+            </div>
+        }
 
-<h3>Development Mode</h3>
-<p>
-    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
-</p>
-<p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
-</p>
+        <div class="error-actions">
+            <a class="btn btn-primary" asp-controller="Import" asp-action="Index">Return to Import Pipeline</a>
+            <a class="btn btn-outline-secondary" asp-controller="Calculation" asp-action="Index">Open Analytics</a>
+        </div>
+    </div>
+</div>

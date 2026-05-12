@@ -1,33 +1,52 @@
 ﻿@model FinanceCase.Web.ViewModels.ExchangeRatesPageViewModel
 
 @{
-    ViewData["Title"] = "Kur Listesi";
+    ViewData["Title"] = "Exchange Rates";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<section class="page-heading">
     <div>
-        <h1 class="h3 mb-1">Güncel Kur Kayıtları</h1>
-        <p class="text-muted mb-0">Veritabanına kaydedilen kur verileri</p>
+        <p class="eyebrow">Exchange Rate Operations</p>
+        <h1>Exchange Rate Records</h1>
+        <p>Exchange-rate records stored in the database and hourly Hangfire synchronization status.</p>
     </div>
-</div>
+</section>
 
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-body rounded-4" style="background: linear-gradient(135deg, #eefaf2 0%, #f8fffb 100%); border: 1px solid #cfead6; color: #245c36;">
-        <div class="d-flex align-items-center gap-2 small fw-semibold mb-1">
-            <span style="width:10px; height:10px; border-radius:50%; background:#27ae60; display:inline-block;"></span>
-            Otomatik kur güncellemesi aktif
-        </div>
-        <div class="small">
-            Kur verileri Hangfire ile saatlik olarak güncellenir.
+<section class="metric-grid metric-grid-compact">
+    <div class="metric-card">
+        <span class="metric-label">Exchange Rate Records</span>
+        <strong>@Model.TotalCount.ToString("N0")</strong>
+        <span class="metric-note">Processed records</span>
+    </div>
+    <div class="metric-card">
+        <span class="metric-label">Current Page</span>
+        <strong>@Model.CurrentPage / @Model.TotalPages</strong>
+        <span class="metric-note">@Model.PageSize.ToString("N0") rows per page</span>
+    </div>
+    <div class="metric-card">
+        <span class="metric-label">Last Sync Timestamp</span>
+        <strong>@(Model.LastRateDataAt?.ToString("MM/dd/yyyy HH:mm") ?? "-")</strong>
+        <span class="metric-note">Source API record time</span>
+    </div>
+</section>
+
+<div class="dashboard-card mb-4">
+    <div class="sync-banner">
+        <span class="status-dot"></span>
+        <div>
+            <strong>Automatic exchange-rate updates are active</strong>
+            <p>
+            Exchange-rate data is refreshed hourly through Hangfire.
             @if (Model.LastRateDataAt.HasValue)
             {
                 <span class="d-inline-block ms-2">
-                    Son veri tarihi: <strong>@Model.LastRateDataAt.Value.ToString("dd.MM.yyyy HH:mm")</strong>
+                    Last source timestamp: <strong>@Model.LastRateDataAt.Value.ToString("MM/dd/yyyy HH:mm")</strong>
                 </span>
-                <span class="d-inline-block ms-2 text-muted">
-                    API kaydındaki zaman damgası gösterilmektedir.
+                <span class="d-inline-block ms-2 muted">
+                    Timestamp from the source API record.
                 </span>
             }
+            </p>
         </div>
     </div>
 </div>
@@ -53,7 +72,7 @@
                 container.innerHTML = await response.text();
                 container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } catch {
-                // mevcut tablo kalsın
+                // keep the current table visible if refresh fails
             }
         }
 

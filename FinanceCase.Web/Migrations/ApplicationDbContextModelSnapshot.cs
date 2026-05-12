@@ -39,6 +39,9 @@ namespace FinanceCase.Web.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Period")
+                        .IsUnique();
+
                     b.ToTable("AssetRecords");
                 });
 
@@ -89,6 +92,9 @@ namespace FinanceCase.Web.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BaseCurrencyCode", "ForeignCurrencyCode", "CurrentDate")
+                        .IsUnique();
+
                     b.ToTable("ExchangeRates");
                 });
 
@@ -114,6 +120,9 @@ namespace FinanceCase.Web.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Period")
+                        .IsUnique();
 
                     b.ToTable("InflationIndexRecords");
                 });

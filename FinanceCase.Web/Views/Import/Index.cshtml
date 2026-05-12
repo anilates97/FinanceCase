@@ -2,96 +2,211 @@
 @inject IWebHostEnvironment Environment
 
 @{
-    ViewData["Title"] = "Veri Yükleme";
+    ViewData["Title"] = "Data Import";
+    var hasSuccess = !string.IsNullOrWhiteSpace(Model.SuccessMessage);
+    var hasError = !string.IsNullOrWhiteSpace(Model.ErrorMessage);
+    var importProgress = hasSuccess ? 100 : hasError ? 68 : 0;
 }
 
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mb-3">
-                    <div>
-                        <h1 class="h3 mb-2">Excel Veri Yükleme</h1>
-                        <p class="text-muted mb-0">Varlık tablosu ve ÜFE endeks tablosunu birlikte yükleyin. Yükleme sonrası ilgili tarih aralığının kur verileri otomatik senkronlanır.</p>
-                    </div>
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">Import Pipeline</p>
+        <h1>Excel Data Import</h1>
+        <p>Upload the asset table and producer price index workbook together. Exchange-rate records for the relevant reporting period are synchronized automatically.</p>
+    </div>
 
-                    @if (Environment.IsDevelopment())
-                    {
-                        <form asp-action="ClearData" method="post" onsubmit="return confirm('Tüm veriler silinsin mi?');">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-outline-danger">Tüm Verileri Temizle</button>
-                        </form>
-                    }
-                </div>
+</section>
 
-                @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
-                {
-                    <div class="alert alert-success">
-                        <div>@Model.SuccessMessage</div>
-                        @if (Model.ShouldRedirectToExchangeRates)
-                        {
-                            <div class="mt-2 small fw-semibold">
-                                <span id="redirectCountdown">@Model.RedirectDelaySeconds</span> saniye içinde Kurlar sayfasına yönlendiriliyorsunuz...
-                            </div>
-                        }
-                    </div>
-                }
+<section class="metric-grid metric-grid-compact">
+    <div class="metric-card">
+        <span class="metric-label">Import Stage</span>
+        <strong>@(hasSuccess ? "Completed" : hasError ? "Validation Required" : "Ready")</strong>
+        <span class="metric-note">Excel ingestion</span>
+    </div>
+    <div class="metric-card">
+        <span class="metric-label">Pipeline</span>
+        <strong>3 Steps</strong>
+        <span class="metric-note">Validate, process, sync</span>
+    </div>
+    <div class="metric-card">
+        <span class="metric-label">Background Jobs</span>
+        <strong>Hangfire</strong>
+        <span class="metric-note">Exchange rate synchronization</span>
+    </div>
+</section>
 
-                @if (!string.IsNullOrWhiteSpace(Model.InfoMessage))
-                {
-                    <div class="alert alert-info">@Model.InfoMessage</div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
-                {
-                    <div class="alert alert-danger">@Model.ErrorMessage</div>
-                }
-
-                <form asp-action="Index" method="post" enctype="multipart/form-data" class="row g-3">
-                    <div class="col-12">
-                        <label asp-for="AssetFile" class="form-label">Varlık Dosyası</label>
-                        <input asp-for="AssetFile" class="form-control" accept=".xls,.xlsx" />
-                    </div>
-
-                    <div class="col-12">
-                        <label asp-for="InflationFile" class="form-label">ÜFE Endeks Dosyası</label>
-                        <input asp-for="InflationFile" class="form-control" accept=".xls,.xlsx" />
-                    </div>
-
-                    <div class="col-12 d-grid">
-                        <button type="submit" class="btn btn-primary">Dosyaları Yükle</button>
-                    </div>
-                </form>
-            </div>
+<div class="dashboard-card demo-dataset-card mb-4">
+    <div class="card-section demo-dataset-layout">
+        <div>
+            <p class="eyebrow">Portfolio Demo Mode</p>
+            <h2>Launch Portfolio Demo Dataset</h2>
+            <p class="section-description">Demo-only workflow for reviewers: generates a complete finance operations scenario with assets, inflation index records, exchange rates and analytics-ready time-series data.</p>
         </div>
+        <form asp-action="LoadDemoDataset" method="post" class="demo-dataset-action" data-loading-form>
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-primary px-4" data-loading-label="Preparing demo workspace...">Launch Demo Dataset</button>
+        </form>
     </div>
 </div>
 
-@if (Model.ShouldRedirectToExchangeRates)
+<div class="dashboard-card import-workflow">
+    <div class="card-section">
+        <div class="section-title">
+            <div>
+                <p class="eyebrow">Operational Workflow</p>
+                <h2>Data Import Run</h2>
+                <p class="section-description">Transactional import processing with duplicate-safe synchronization.</p>
+            </div>
+            <span class="status-pill @(hasSuccess ? "status-success" : hasError ? "status-danger" : "status-idle")">
+                @(hasSuccess ? "Import complete" : hasError ? "Needs attention" : "Awaiting files")
+            </span>
+        </div>
+
+        <div class="pipeline-progress" aria-label="Import progress">
+            <div class="pipeline-progress-bar" style="width: @importProgress%"></div>
+        </div>
+
+        <div class="workflow-steps">
+            <div class="workflow-step @(hasSuccess || hasError ? "is-complete" : "is-active")">
+                <span>01</span>
+                <div>
+                    <strong>File Validation</strong>
+                    <small>Asset and inflation index workbook schemas are validated before processing.</small>
+                </div>
+            </div>
+            <div class="workflow-step @(hasSuccess ? "is-complete" : hasError ? "is-warning" : string.Empty)">
+                <span>02</span>
+                <div>
+                    <strong>Row Processing</strong>
+                    <small>Financial periods, values and index data are normalized for analytics.</small>
+                </div>
+            </div>
+            <div class="workflow-step @(hasSuccess ? "is-complete" : string.Empty)">
+                <span>03</span>
+                <div>
+                    <strong>Exchange Synchronization</strong>
+                    <small>Exchange-rate records for the reporting period are synchronized in the background.</small>
+                </div>
+            </div>
+        </div>
+
+        @if (hasSuccess)
+        {
+            <div class="alert alert-success app-alert">
+                <div>@Model.SuccessMessage</div>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.InfoMessage))
+        {
+            <div class="alert alert-info app-alert">@Model.InfoMessage</div>
+        }
+
+        @if (hasError)
+        {
+            <div class="alert alert-danger app-alert">@Model.ErrorMessage</div>
+        }
+
+        <form asp-action="Index" method="post" enctype="multipart/form-data" class="import-form" data-loading-form>
+            <div class="import-file-grid">
+                <div>
+                    <label asp-for="AssetFile" class="form-label">Asset File</label>
+                    <label class="upload-control" for="AssetFile">
+                        <span class="upload-button">Choose File</span>
+                        <span class="upload-filename" data-file-name-for="AssetFile">No Excel file selected</span>
+                    </label>
+                    <input asp-for="AssetFile" class="visually-hidden upload-input" accept=".xls,.xlsx" />
+                    <div class="form-hint">Asset timeline, amount and period data</div>
+                </div>
+
+                <div>
+                    <label asp-for="InflationFile" class="form-label">Inflation Index File</label>
+                    <label class="upload-control" for="InflationFile">
+                        <span class="upload-button">Choose File</span>
+                        <span class="upload-filename" data-file-name-for="InflationFile">No Excel file selected</span>
+                    </label>
+                    <input asp-for="InflationFile" class="visually-hidden upload-input" accept=".xls,.xlsx" />
+                    <div class="form-hint">Inflation index synchronization source</div>
+                </div>
+            </div>
+
+            <div class="import-submit-row">
+                <button type="submit" class="btn btn-primary px-4" data-loading-label="Processing files...">Upload and Process Files</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Environment.IsDevelopment())
 {
-    @section Scripts {
-        <script>
-            (() => {
-                const countdownElement = document.getElementById('redirectCountdown');
-                if (!countdownElement) {
-                    return;
-                }
+    <div class="dashboard-card danger-zone mt-4">
+        <div class="card-section">
+            <div class="section-title">
+                <div>
+                    <p class="eyebrow">Admin Debug</p>
+                    <h2>Danger Zone</h2>
+                    <p class="danger-zone-copy">This action should only be used in development environments for resetting test datasets. The standard import pipeline prevents duplicate records through transactional upsert processing.</p>
+                </div>
+                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#clearDataModal">
+                    Clear All Data
+                </button>
+            </div>
+        </div>
+    </div>
 
-                let secondsRemaining = Number(countdownElement.textContent);
+    <div class="modal fade" id="clearDataModal" tabindex="-1" aria-labelledby="clearDataModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content admin-modal">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="clearDataModalLabel">Clear all data?</h1>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    This action deletes asset, inflation index and exchange-rate records. It is not required for production imports and should only be used for development or debugging.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form asp-action="ClearData" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-danger">Yes, Clear Data</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
-                // başarılı import sonrası kullanıcıyı otomatik olarak kurlar ekranına yönlendirir
-                const intervalId = window.setInterval(() => {
-                    secondsRemaining -= 1;
-
-                    if (secondsRemaining <= 0) {
-                        window.clearInterval(intervalId);
-                        window.location.href = '@Url.Action("Index", "ExchangeRates")';
+@section Scripts {
+    <script>
+        (() => {
+            document.querySelectorAll('[data-loading-form]').forEach((form) => {
+                form.addEventListener('submit', () => {
+                    const button = form.querySelector('button[type="submit"]');
+                    if (!button) {
                         return;
                     }
 
-                    countdownElement.textContent = String(secondsRemaining);
-                }, 1000);
-            })();
-        </script>
-    }
+                    button.dataset.originalText = button.textContent.trim();
+                    button.textContent = button.dataset.loadingLabel || 'Processing...';
+                    button.disabled = true;
+                    button.classList.add('is-loading');
+                });
+            });
+
+            document.querySelectorAll('.upload-input').forEach((input) => {
+                const target = document.querySelector(`[data-file-name-for="${input.id}"]`);
+
+                input.addEventListener('change', () => {
+                    if (!target) {
+                        return;
+                    }
+
+                    target.textContent = input.files?.[0]?.name || 'No Excel file selected';
+                });
+            });`r`n        })();
+    </script>
 }
+
+
+
+

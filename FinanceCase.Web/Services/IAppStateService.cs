@@ -8,7 +8,7 @@ public interface IAppStateService
     Task<bool> IsDataReadyAsync();
 }
 
-// menüdeki ekranları göstermeden önce temel verilerin hazır olduğunu kontrol eder
+// checks that the core datasets are ready before exposing downstream screens
 public class AppStateService(ApplicationDbContext dbContext) : IAppStateService
 {
     public async Task<bool> IsDataReadyAsync()

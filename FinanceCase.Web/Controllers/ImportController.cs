@@ -6,7 +6,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FinanceCase.Web.Controllers;
 
-public class ImportController(IImportService importService, ApplicationDbContext dbContext, IWebHostEnvironment environment) : Controller
+public class ImportController(
+    IImportService importService,
+    IDemoDatasetService demoDatasetService,
+    ApplicationDbContext dbContext,
+    IWebHostEnvironment environment) : Controller
 {
     [HttpGet]
     public IActionResult Index()
@@ -20,16 +24,15 @@ public class ImportController(IImportService importService, ApplicationDbContext
     {
         if (model.AssetFile is null || model.InflationFile is null)
         {
-            model.ErrorMessage = "Lütfen hem varlık hem de ÜFE dosyasını seçin.";
+            model.ErrorMessage = "Please select both the asset file and the inflation index file.";
             return View(model);
         }
 
         try
         {
             var summary = await importService.ImportAsync(model.AssetFile, model.InflationFile);
-            model.SuccessMessage = $"İçe aktarım tamamlandı. Varlık satırı: {summary.AssetCount}, ÜFE satırı: {summary.InflationCount}, senkronlanan kur kaydı: {summary.SyncedExchangeRateCount}. Kur aralığı: {summary.StartPeriod:MM.yyyy} - {summary.EndPeriod:MM.yyyy}";
-            model.ShouldRedirectToExchangeRates = true;
-            model.RedirectDelaySeconds = 3;
+            TempData["PipelineStatus"] = BuildPipelineStatusMessage(summary, "Import completed safely");
+            return RedirectToAction("Index", "Calculation");
         }
         catch (InvalidOperationException ex)
         {
@@ -37,14 +40,46 @@ public class ImportController(IImportService importService, ApplicationDbContext
         }
         catch (FormatException)
         {
-            model.ErrorMessage = "Yüklenen dosya şablonu beklenen formatla uyuşmuyor. Lütfen örnek dosya yapısına uygun Excel dosyaları yükleyin.";
+            model.ErrorMessage = "The uploaded file template does not match the expected format. Please upload Excel files that follow the sample structure.";
         }
         catch
         {
-            model.ErrorMessage = "Dosyalar işlenirken beklenmeyen bir hata oluştu. Lütfen dosya formatını kontrol edip tekrar deneyin.";
+            model.ErrorMessage = "An unexpected error occurred while processing the files. Please verify the file format and try again.";
         }
 
         return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> LoadDemoDataset()
+    {
+        var model = new ImportFilesViewModel();
+
+        try
+        {
+            var summary = await demoDatasetService.LoadDemoDatasetAsync();
+            TempData["PipelineStatus"] = BuildPipelineStatusMessage(summary, "Demo dataset loaded successfully");
+            return RedirectToAction("Index", "Calculation");
+        }
+        catch (InvalidOperationException ex)
+        {
+            model.ErrorMessage = ex.Message;
+        }
+        catch
+        {
+            model.ErrorMessage = "The demo dataset could not be loaded. Please try again or use the manual Excel import workflow.";
+        }
+
+        return View("Index", model);
+    }
+
+    private static string BuildPipelineStatusMessage(ImportSummary summary, string title)
+    {
+        return $"{title}. Assets: {summary.AssetInsertedCount} inserted, {summary.AssetUpdatedCount} updated. " +
+            $"Inflation index: {summary.InflationInsertedCount} inserted, {summary.InflationUpdatedCount} updated. " +
+            $"Exchange rates: {summary.ExchangeRateInsertedCount} inserted, {summary.ExchangeRateUpdatedCount} updated. " +
+            $"Range: {summary.StartPeriod:MMM yyyy} - {summary.EndPeriod:MMM yyyy}.";
     }
 
     [HttpPost]
@@ -63,7 +98,7 @@ public class ImportController(IImportService importService, ApplicationDbContext
 
         return View("Index", new ImportFilesViewModel
         {
-            InfoMessage = "Tüm veriler temizlendi. Yeni test için dosyaları tekrar yükleyebilirsiniz."
+            InfoMessage = "All data has been cleared. You can upload files again for a new test run."
         });
     }
 }

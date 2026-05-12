@@ -14,6 +14,7 @@ builder.Services.AddHttpClient<IExchangeRateService, ExchangeRateService>(client
 });
 builder.Services.AddScoped<IAppStateService, AppStateService>();
 builder.Services.AddScoped<IImportService, ImportService>();
+builder.Services.AddScoped<IDemoDatasetService, DemoDatasetService>();
 builder.Services.AddScoped<ICalculationService, CalculationService>();
 builder.Services.AddHangfire(configuration => configuration
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -36,6 +37,7 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
+    app.UseStatusCodePagesWithReExecute("/Error");
     app.UseHsts();
 }
 
@@ -45,7 +47,11 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapStaticAssets();
-app.UseHangfireDashboard("/hangfire");
+
+if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("FinanceCase:EnableHangfireDashboard"))
+{
+    app.UseHangfireDashboard("/hangfire");
+}
 
 RecurringJob.AddOrUpdate<IExchangeRateService>(
     "hourly-exchange-rate-sync",

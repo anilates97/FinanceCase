@@ -8,8 +8,20 @@ public interface IImportService
 }
 
 public sealed record ImportSummary(
-    int AssetCount,
-    int InflationCount,
-    int SyncedExchangeRateCount,
+    int AssetInsertedCount,
+    int AssetUpdatedCount,
+    int AssetSkippedCount,
+    int InflationInsertedCount,
+    int InflationUpdatedCount,
+    int InflationSkippedCount,
+    int ExchangeRateInsertedCount,
+    int ExchangeRateUpdatedCount,
+    int ExchangeRateSkippedCount,
+    TimeSpan Duration,
     DateTime StartPeriod,
     DateTime EndPeriod);
+
+public sealed record UpsertSummary(
+    int InsertedCount,
+    int UpdatedCount,
+    int SkippedCount);

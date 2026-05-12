@@ -3,7 +3,7 @@
 @using System.Text.Json
 
 @{
-    var tr = new CultureInfo("tr-TR");
+    var en = new CultureInfo("en-US");
     var hasRows = Model.Rows.Count > 0;
     var firstPeriod = hasRows ? Model.Rows.First().Period : (DateTime?)null;
     var lastPeriod = hasRows ? Model.Rows.Last().Period : (DateTime?)null;
@@ -13,27 +13,31 @@
     var infoClampedToAvailableData = hasRows && selectedEndMonth.HasValue && lastPeriod.HasValue && selectedEndMonth.Value > lastPeriod.Value;
     var chartPayload = JsonSerializer.Serialize(new
     {
-        labels = Model.Rows.Select(x => x.Period.ToString("MMM yyyy", tr)),
+        labels = Model.Rows.Select(x => x.Period.ToString("MMM yyyy", en)),
         assetSeries = Model.Rows.Select(x => x.AssetAmount),
         dollarizedSeries = Model.Rows.Select(x => x.DollarizedAssetAmount),
         inflationSeries = Model.Rows.Select(x => x.InflationAdjustedAssetAmount)
     });
-    string Tl(decimal value) => value.ToString("C2", tr);
-    string Percent(decimal value) => value.ToString("P2", tr);
-    string DollarRate(decimal value) => value == 0 ? "-" : "$" + value.ToString("N2", tr);
+    string Tl(decimal value) => value.ToString("C2", en);
+    string Percent(decimal value) => value.ToString("P2", en);
+    string DollarRate(decimal value) => value == 0 ? "-" : "$" + value.ToString("N2", en);
+    string DeltaClass(decimal value) => value > 0 ? "is-positive" : value < 0 ? "is-negative" : "is-neutral";
+    var lastRow = hasRows ? Model.Rows.Last() : null;
+    var firstRow = hasRows ? Model.Rows.First() : null;
+    var monthlyChange = lastRow?.AssetChangeRate ?? 0;
 }
 
 @if (infoClampedToAvailableData)
 {
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body rounded-4 px-3 py-3" style="background: linear-gradient(135deg, #eef6ff 0%, #f7fbff 100%); border: 1px solid #cfe2ff; color: #1f4b7a;">
-            <div class="d-flex align-items-center gap-2 small fw-semibold mb-1">
-                <span style="width:10px; height:10px; border-radius:50%; background:#2f80ed; display:inline-block;"></span>
-                Veri aralığı otomatik uyarlaması
-            </div>
-            <div class="small mb-0">
-                Seçtiğin bitiş tarihi için tam veri bulunmadığından rapor mevcut son veri ayına göre oluşturuldu:
-                <strong>@lastPeriod?.ToString("MMMM yyyy", tr)</strong>
+    <div class="dashboard-card mb-4">
+        <div class="sync-banner sync-banner-info">
+            <span class="status-dot"></span>
+            <div>
+                <strong>Reporting range adjusted automatically</strong>
+                <p>
+                    Complete data was not available for the selected end date, so the report was generated using the latest available month:
+                    <strong>@lastPeriod?.ToString("MMMM yyyy", en)</strong>
+                </p>
             </div>
         </div>
     </div>
@@ -41,66 +45,106 @@
 
 @if (hasRows)
 {
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <canvas id="resultsChart" height="110"></canvas>
+    <section class="metric-grid">
+        <div class="metric-card metric-card-primary">
+            <span class="metric-label">Total Asset Value</span>
+            <strong>@Tl(lastRow!.AssetAmount)</strong>
+            <span class="metric-note">Latest reported period</span>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">Inflation Adjusted Value</span>
+            <strong>@Tl(lastRow!.InflationAdjustedAssetAmount)</strong>
+            <span class="metric-note">Producer price index synchronized</span>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">Monthly Change</span>
+            <strong class="@DeltaClass(monthlyChange)">@Percent(monthlyChange)</strong>
+            <span class="metric-note">@lastRow.Period.ToString("MMMM yyyy", en)</span>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">Reporting Range</span>
+            <strong>@firstPeriod?.ToString("MMM yy", en) - @lastPeriod?.ToString("MMM yy", en)</strong>
+            <span class="metric-note">@Model.Rows.Count.ToString("N0", en) processed rows</span>
+        </div>
+    </section>
+
+    <div class="dashboard-card chart-card mb-4">
+        <div class="card-section">
+            <div class="section-title">
+                <div>
+                    <p class="eyebrow">Time-Series Analytics</p>
+                    <h2>Asset Value Movement</h2>
+                </div>
+                <span class="status-pill status-idle">@firstPeriod?.ToString("MMMM yyyy", en) - @lastPeriod?.ToString("MMMM yyyy", en)</span>
+            </div>
+            <div class="chart-shell">
+                <canvas id="resultsChart"></canvas>
+            </div>
             <script id="resultsChartData" type="application/json">@Html.Raw(chartPayload)</script>
         </div>
     </div>
 
-    <p class="text-center small mb-2">
-        Rapor Tarih Aralığı: @firstPeriod?.ToString("MMMM yyyy", tr) - @lastPeriod?.ToString("MMMM yyyy", tr)
-    </p>
-
-    <div class="card shadow-sm">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-striped table-hover table-sm mb-0 align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Tarih</th>
-                            <th>Varlık Tarihi Varlık Tutarı</th>
-                            <th>Önceki Aya Göre Varlık Artışı</th>
-                            <th>Varlık Değişim Oranı</th>
-                            <th>Varlık Tarihi Dolar Kuru</th>
-                            <th>Dolarizasyon Varlık Tutarı</th>
-                            <th>Dolarizasyon Önceki Aya Göre Varlık Artışı</th>
-                            <th>Dolarizasyon Varlık Değişim Oranı</th>
-                            <th>Dolarizasyon Etkisi Yüzde</th>
-                            <th>ÜFE Endeks</th>
-                            <th>Enflasyon Varlık Tutarı</th>
-                            <th>Enflasyon Önceki Aya Göre Varlık Artışı</th>
-                            <th>Enflasyon Varlık Değişim Oranı</th>
-                            <th>Enflasyon Etkisi Yüzde</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var row in Model.Rows)
-                    {
-                        <tr>
-                            <td>@row.Period.ToString("MMM.yy", tr)</td>
-                            <td>@Tl(row.AssetAmount)</td>
-                            <td>@Tl(row.PreviousMonthAssetIncrease)</td>
-                            <td>@Percent(row.AssetChangeRate)</td>
-                            <td>@DollarRate(row.AssetMonthUsdRate)</td>
-                            <td>@Tl(row.DollarizedAssetAmount)</td>
-                            <td>@Tl(row.PreviousMonthDollarizedIncrease)</td>
-                            <td>@Percent(row.DollarizedChangeRate)</td>
-                            <td>@Percent(row.DollarizationEffectRate)</td>
-                            <td>@row.InflationIndex.ToString("N2", tr)</td>
-                            <td>@Tl(row.InflationAdjustedAssetAmount)</td>
-                            <td>@Tl(row.PreviousMonthInflationAdjustedIncrease)</td>
-                            <td>@Percent(row.InflationAdjustedChangeRate)</td>
-                            <td>@Percent(row.InflationEffectRate)</td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+    <div class="dashboard-card data-table-card">
+        <div class="table-toolbar">
+            <div>
+                <span class="metric-label">Calculation Output</span>
+                <strong>Processed Data Count: @Model.Rows.Count.ToString("N0", en)</strong>
             </div>
+            <span class="status-pill status-idle">Report: @firstPeriod?.ToString("MMMM yyyy", en) - @lastPeriod?.ToString("MMMM yyyy", en)</span>
+        </div>
+        <div class="table-responsive analytics-table-wrap analytics-table-wide has-edge-fade">
+            <table class="table analytics-table has-sticky-column mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <th class="text-end">Asset Value</th>
+                        <th class="text-end">Monthly Increase</th>
+                        <th class="text-end">Change Rate</th>
+                        <th class="text-end">USD Rate</th>
+                        <th class="text-end">Dollarized Value</th>
+                        <th class="text-end">Dollarized Increase</th>
+                        <th class="text-end">Dollarized Rate</th>
+                        <th class="text-end">Dollarization Effect</th>
+                        <th class="text-end">PPI Index</th>
+                        <th class="text-end">Inflation Adjusted Value</th>
+                        <th class="text-end">Inflation Adjusted Increase</th>
+                        <th class="text-end">Inflation Adjusted Rate</th>
+                        <th class="text-end">Inflation Effect</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td><span class="period-cell">@row.Period.ToString("MMM.yy", en)</span></td>
+                        <td class="numeric">@Tl(row.AssetAmount)</td>
+                        <td class="numeric @DeltaClass(row.PreviousMonthAssetIncrease)">@Tl(row.PreviousMonthAssetIncrease)</td>
+                        <td class="numeric @DeltaClass(row.AssetChangeRate)">@Percent(row.AssetChangeRate)</td>
+                        <td class="numeric">@DollarRate(row.AssetMonthUsdRate)</td>
+                        <td class="numeric">@Tl(row.DollarizedAssetAmount)</td>
+                        <td class="numeric @DeltaClass(row.PreviousMonthDollarizedIncrease)">@Tl(row.PreviousMonthDollarizedIncrease)</td>
+                        <td class="numeric @DeltaClass(row.DollarizedChangeRate)">@Percent(row.DollarizedChangeRate)</td>
+                        <td class="numeric @DeltaClass(row.DollarizationEffectRate)">@Percent(row.DollarizationEffectRate)</td>
+                        <td class="numeric">@row.InflationIndex.ToString("N2", en)</td>
+                        <td class="numeric">@Tl(row.InflationAdjustedAssetAmount)</td>
+                        <td class="numeric @DeltaClass(row.PreviousMonthInflationAdjustedIncrease)">@Tl(row.PreviousMonthInflationAdjustedIncrease)</td>
+                        <td class="numeric @DeltaClass(row.InflationAdjustedChangeRate)">@Percent(row.InflationAdjustedChangeRate)</td>
+                        <td class="numeric @DeltaClass(row.InflationEffectRate)">@Percent(row.InflationEffectRate)</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
         </div>
     </div>
 }
 else
 {
-    <div class="alert alert-warning">Seçilen aralık için gösterilecek hesaplama verisi bulunamadı.</div>
+    <div class="dashboard-card empty-state">
+        <div class="card-section">
+            <p class="eyebrow">No Analytics Output</p>
+            <h2>No calculation data is available for the selected range.</h2>
+            <p>Adjust the reporting dates or load the demo dataset to generate a complete analytics workspace.</p>
+            <a class="btn btn-outline-secondary" asp-controller="Import" asp-action="Index">Return to Import Pipeline</a>
+        </div>
+    </div>
 }

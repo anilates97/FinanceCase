@@ -1,9 +1,11 @@
-﻿using FinanceCase.Web.Data;
+using FinanceCase.Web.Data;
 using FinanceCase.Web.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using NPOI.HSSF.UserModel;
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace FinanceCase.Web.Services;
@@ -12,42 +14,191 @@ public class ImportService(ApplicationDbContext dbContext, IExchangeRateService 
 {
     public async Task<ImportSummary> ImportAsync(IFormFile assetFile, IFormFile inflationFile)
     {
-        var assetRecords = ReadAssetRecords(assetFile);
-        var inflationRecords = ReadInflationIndexRecords(inflationFile);
+        var stopwatch = Stopwatch.StartNew();
+        var assetRecords = NormalizeAssetRecords(ReadAssetRecords(assetFile), out var skippedAssetRows);
+        var inflationRecords = NormalizeInflationIndexRecords(ReadInflationIndexRecords(inflationFile), out var skippedInflationRows);
 
-        dbContext.AssetRecords.RemoveRange(dbContext.AssetRecords);
-        dbContext.InflationIndexRecords.RemoveRange(dbContext.InflationIndexRecords);
+        return await ExecuteImportTransactionAsync(assetRecords, inflationRecords, skippedAssetRows, skippedInflationRows, stopwatch);
+    }
 
-        await dbContext.AssetRecords.AddRangeAsync(assetRecords);
-        await dbContext.InflationIndexRecords.AddRangeAsync(inflationRecords);
+    private async Task<ImportSummary> ExecuteImportTransactionAsync(
+        List<AssetRecord> assetRecords,
+        List<InflationIndexRecord> inflationRecords,
+        int skippedAssetRows,
+        int skippedInflationRows,
+        Stopwatch stopwatch)
+    {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync();
+
+        try
+        {
+            var assetSummary = await UpsertAssetRecordsAsync(assetRecords, skippedAssetRows);
+            var inflationSummary = await UpsertInflationIndexRecordsAsync(inflationRecords, skippedInflationRows);
+
+            var startPeriod = assetRecords.Select(x => x.Period)
+                .Concat(inflationRecords.Select(x => x.Period))
+                .Min();
+            var endPeriod = assetRecords.Select(x => x.Period)
+                .Concat(inflationRecords.Select(x => x.Period))
+                .Max();
+
+            var exchangeRateSummary = await SyncExchangeRatesAsync(startPeriod, endPeriod);
+
+            await transaction.CommitAsync();
+            stopwatch.Stop();
+
+            return BuildImportSummary(assetSummary, inflationSummary, exchangeRateSummary, stopwatch.Elapsed, startPeriod, endPeriod);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw new InvalidOperationException("Import processing could not be completed. All changes were rolled back; no partial data was written to the database.", ex);
+        }
+    }
+
+    private async Task<UpsertSummary> UpsertAssetRecordsAsync(List<AssetRecord> incomingRecords, int skippedCount)
+    {
+        var periods = incomingRecords.Select(x => x.Period).ToList();
+        var minPeriod = periods.Min();
+        var maxPeriod = periods.Max();
+
+        var existingRecords = await dbContext.AssetRecords
+            .Where(x => x.Period >= minPeriod && x.Period <= maxPeriod)
+            .ToListAsync();
+
+        var existingByPeriod = existingRecords.ToDictionary(x => x.Period);
+        var insertedCount = 0;
+        var updatedCount = 0;
+
+        foreach (var incoming in incomingRecords)
+        {
+            if (existingByPeriod.TryGetValue(incoming.Period, out var existing))
+            {
+                existing.AssetAmount = incoming.AssetAmount;
+                updatedCount++;
+                continue;
+            }
+
+            await dbContext.AssetRecords.AddAsync(incoming);
+            insertedCount++;
+        }
+
         await dbContext.SaveChangesAsync();
 
-        var startPeriod = assetRecords.Select(x => x.Period)
-            .Concat(inflationRecords.Select(x => x.Period))
-            .Min();
-        var endPeriod = assetRecords.Select(x => x.Period)
-            .Concat(inflationRecords.Select(x => x.Period))
-            .Max();
+        return new UpsertSummary(insertedCount, updatedCount, skippedCount);
+    }
 
-        // dosya yüklendikten sonra hesaplama için gerekli tarih aralığındaki kur verileri de senkronlanır
-        var syncedExchangeRateCount = await exchangeRateService.FetchAndSaveRatesAsync(
-            new DateTime(startPeriod.Year, startPeriod.Month, 1),
-            new DateTime(endPeriod.Year, endPeriod.Month, DateTime.DaysInMonth(endPeriod.Year, endPeriod.Month)));
+    private async Task<UpsertSummary> UpsertInflationIndexRecordsAsync(List<InflationIndexRecord> incomingRecords, int skippedCount)
+    {
+        var periods = incomingRecords.Select(x => x.Period).ToList();
+        var minPeriod = periods.Min();
+        var maxPeriod = periods.Max();
 
+        var existingRecords = await dbContext.InflationIndexRecords
+            .Where(x => x.Period >= minPeriod && x.Period <= maxPeriod)
+            .ToListAsync();
+
+        var existingByPeriod = existingRecords.ToDictionary(x => x.Period);
+        var insertedCount = 0;
+        var updatedCount = 0;
+
+        foreach (var incoming in incomingRecords)
+        {
+            if (existingByPeriod.TryGetValue(incoming.Period, out var existing))
+            {
+                existing.Year = incoming.Year;
+                existing.Month = incoming.Month;
+                existing.IndexValue = incoming.IndexValue;
+                updatedCount++;
+                continue;
+            }
+
+            await dbContext.InflationIndexRecords.AddAsync(incoming);
+            insertedCount++;
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        return new UpsertSummary(insertedCount, updatedCount, skippedCount);
+    }
+
+    private Task<ExchangeRateSyncSummary> SyncExchangeRatesAsync(DateTime startPeriod, DateTime endPeriod)
+    {
+        var startDate = new DateTime(startPeriod.Year, startPeriod.Month, 1);
+        var endDate = new DateTime(endPeriod.Year, endPeriod.Month, DateTime.DaysInMonth(endPeriod.Year, endPeriod.Month));
+
+        return exchangeRateService.FetchAndSaveRatesWithSummaryAsync(startDate, endDate);
+    }
+
+    private static ImportSummary BuildImportSummary(
+        UpsertSummary assetSummary,
+        UpsertSummary inflationSummary,
+        ExchangeRateSyncSummary exchangeRateSummary,
+        TimeSpan duration,
+        DateTime startPeriod,
+        DateTime endPeriod)
+    {
         return new ImportSummary(
-            assetRecords.Count,
-            inflationRecords.Count,
-            syncedExchangeRateCount,
+            assetSummary.InsertedCount,
+            assetSummary.UpdatedCount,
+            assetSummary.SkippedCount,
+            inflationSummary.InsertedCount,
+            inflationSummary.UpdatedCount,
+            inflationSummary.SkippedCount,
+            exchangeRateSummary.InsertedCount,
+            exchangeRateSummary.UpdatedCount,
+            exchangeRateSummary.SkippedCount,
+            duration,
             startPeriod,
             endPeriod);
     }
 
+    private static List<AssetRecord> NormalizeAssetRecords(List<AssetRecord> records, out int skippedDuplicateRows)
+    {
+        var normalizedRecords = records
+            .Select(x => new AssetRecord
+            {
+                Period = NormalizeMonth(x.Period),
+                AssetAmount = x.AssetAmount
+            })
+            .GroupBy(x => x.Period)
+            .Select(x => x.Last())
+            .OrderBy(x => x.Period)
+            .ToList();
+
+        skippedDuplicateRows = records.Count - normalizedRecords.Count;
+        return normalizedRecords;
+    }
+
+    private static List<InflationIndexRecord> NormalizeInflationIndexRecords(List<InflationIndexRecord> records, out int skippedDuplicateRows)
+    {
+        var normalizedRecords = records
+            .Select(x =>
+            {
+                var period = NormalizeMonth(x.Period);
+                return new InflationIndexRecord
+                {
+                    Year = period.Year,
+                    Month = period.Month,
+                    Period = period,
+                    IndexValue = x.IndexValue
+                };
+            })
+            .GroupBy(x => x.Period)
+            .Select(x => x.Last())
+            .OrderBy(x => x.Period)
+            .ToList();
+
+        skippedDuplicateRows = records.Count - normalizedRecords.Count;
+        return normalizedRecords;
+    }
+
     private static List<AssetRecord> ReadAssetRecords(IFormFile assetFile)
     {
-        ValidateExcelExtension(assetFile, "Varlık dosyası");
+        ValidateExcelExtension(assetFile, "Asset file");
 
         using var workbook = OpenWorkbook(assetFile);
-        var sheet = workbook.GetSheetAt(0) ?? throw new InvalidOperationException("Varlık dosyası okunamadı.");
+        var sheet = workbook.GetSheetAt(0) ?? throw new InvalidOperationException("The asset file could not be read.");
         ValidateAssetSheet(sheet);
 
         var records = new List<AssetRecord>();
@@ -80,7 +231,7 @@ public class ImportService(ApplicationDbContext dbContext, IExchangeRateService 
 
         if (records.Count == 0)
         {
-            throw new InvalidOperationException("Varlık dosyasında içe aktarılabilir kayıt bulunamadı. Lütfen örnek şablona uygun bir dosya yükleyin.");
+            throw new InvalidOperationException("No importable records were found in the asset file. Please upload a file that follows the sample template.");
         }
 
         return records;
@@ -88,10 +239,10 @@ public class ImportService(ApplicationDbContext dbContext, IExchangeRateService 
 
     private static List<InflationIndexRecord> ReadInflationIndexRecords(IFormFile inflationFile)
     {
-        ValidateExcelExtension(inflationFile, "ÜFE dosyası");
+        ValidateExcelExtension(inflationFile, "Inflation index file");
 
         using var workbook = OpenWorkbook(inflationFile);
-        var sheet = workbook.GetSheetAt(0) ?? throw new InvalidOperationException("ÜFE dosyası okunamadı.");
+        var sheet = workbook.GetSheetAt(0) ?? throw new InvalidOperationException("The inflation index file could not be read.");
         ValidateInflationSheet(sheet);
 
         var records = new List<InflationIndexRecord>();
@@ -130,7 +281,7 @@ public class ImportService(ApplicationDbContext dbContext, IExchangeRateService 
 
         if (records.Count == 0)
         {
-            throw new InvalidOperationException("ÜFE dosyasında içe aktarılabilir kayıt bulunamadı. Lütfen örnek şablona uygun bir dosya yükleyin.");
+            throw new InvalidOperationException("No importable records were found in the inflation index file. Please upload a file that follows the sample template.");
         }
 
         return records;
@@ -141,7 +292,7 @@ public class ImportService(ApplicationDbContext dbContext, IExchangeRateService 
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (extension is not ".xls" and not ".xlsx")
         {
-            throw new InvalidOperationException($"{fileLabel} Excel formatında olmalıdır (.xls veya .xlsx).");
+            throw new InvalidOperationException($"{fileLabel} must be an Excel file (.xls or .xlsx).");
         }
     }
 
@@ -153,7 +304,7 @@ public class ImportService(ApplicationDbContext dbContext, IExchangeRateService 
 
         if (firstHeader != "tarih" || secondHeader != "varlik tutari")
         {
-            throw new InvalidOperationException("Varlık dosyası beklenen şablonda değil. İlk iki sütun 'Tarih' ve 'Varlık Tutarı' olmalıdır.");
+            throw new InvalidOperationException("The asset file does not match the expected template. The first two columns must be 'Date' and 'Asset Amount'.");
         }
     }
 
@@ -174,7 +325,7 @@ public class ImportService(ApplicationDbContext dbContext, IExchangeRateService 
 
         if (!hasYearHeader)
         {
-            throw new InvalidOperationException("ÜFE dosyası beklenen şablonda değil. 'Yıl/Year' başlığını içeren endeks tablosu yükleyin.");
+            throw new InvalidOperationException("The inflation index file does not match the expected template. Upload an index table with a 'Year' header.");
         }
     }
 
@@ -210,7 +361,7 @@ public class ImportService(ApplicationDbContext dbContext, IExchangeRateService 
         {
             ".xls" => new HSSFWorkbook(stream),
             ".xlsx" => new XSSFWorkbook(stream),
-            _ => throw new InvalidOperationException("Desteklenmeyen dosya formatı.")
+            _ => throw new InvalidOperationException("Unsupported file format.")
         };
     }
 
@@ -240,13 +391,13 @@ public class ImportService(ApplicationDbContext dbContext, IExchangeRateService 
     {
         if (cell.CellType == CellType.Numeric && DateUtil.IsCellDateFormatted(cell))
         {
-            return cell.DateCellValue ?? throw new InvalidOperationException("Tarih hücresi okunamadı.");
+            return cell.DateCellValue ?? throw new InvalidOperationException("The date cell could not be read.");
         }
 
         var value = cell.ToString()?.Trim();
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new InvalidOperationException("Tarih alanı boş olamaz.");
+            throw new InvalidOperationException("The date field cannot be empty.");
         }
 
         var culture = new CultureInfo("tr-TR");
@@ -265,10 +416,15 @@ public class ImportService(ApplicationDbContext dbContext, IExchangeRateService 
         var value = cell.ToString()?.Trim();
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new InvalidOperationException("Sayısal alan boş olamaz.");
+            throw new InvalidOperationException("Numeric fields cannot be empty.");
         }
 
         var normalized = value.Replace("?", string.Empty).Trim();
         return decimal.Parse(normalized, NumberStyles.Number, new CultureInfo("tr-TR"));
+    }
+
+    private static DateTime NormalizeMonth(DateTime value)
+    {
+        return new DateTime(value.Year, value.Month, 1);
     }
 }

@@ -130,7 +130,7 @@ public class CalculationService(ApplicationDbContext dbContext) : ICalculationSe
         {
             var requestedMonth = new DateTime(requestedEndPeriod.Value.Year, requestedEndPeriod.Value.Month, 1);
 
-            // kullanıcı daha ileri tarih seçse bile mevcut veri aralığına göre kırpılır
+            // clamp future user selections to the latest available data range
             var clampedPeriod = calculablePeriods.LastOrDefault(x => x <= requestedMonth);
             return clampedPeriod == default ? calculablePeriods.First() : clampedPeriod;
         }
@@ -143,7 +143,7 @@ public class CalculationService(ApplicationDbContext dbContext) : ICalculationSe
         var monthStart = new DateTime(period.Year, period.Month, 1);
         var monthEnd = monthStart.AddMonths(1);
 
-        // aylık hesapta ilgili ayın son kur kaydı kullanılır
+        // monthly calculations use the latest exchange-rate record in the period
         var monthlyRate = exchangeRates
             .Where(x => x.CurrentDate >= monthStart && x.CurrentDate < monthEnd)
             .OrderByDescending(x => x.CurrentDate)

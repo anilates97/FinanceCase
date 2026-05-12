@@ -1,41 +1,55 @@
 ﻿@model FinanceCase.Web.ViewModels.CalculationPageViewModel
 
 @{
-    ViewData["Title"] = "Hesaplama Sonuçları";
+    ViewData["Title"] = "Analytics Results";
     var hasActiveFilter = Model.StartPeriod.HasValue || Model.EndPeriod.HasValue;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<section class="page-heading">
     <div>
-        <h1 class="h3 mb-1">Hesaplama Sonuçları</h1>
-        <p class="text-muted mb-0">Dolarizasyon ve enflasyon tablosu</p>
+        <p class="eyebrow">Analytics Reporting</p>
+        <h1>Analytics Results</h1>
+        <p>Dollarization, inflation adjustment and monthly time-series calculations.</p>
     </div>
-</div>
+</section>
 
-<div class="card shadow-sm mb-4 border-0">
-    <div class="card-body">
-        <form id="calculationFilterForm" method="get" class="row g-3 align-items-end">
+@if (TempData["PipelineStatus"] is string pipelineStatus)
+{
+    <div class="dashboard-card pipeline-status-card mb-4">
+        <div class="sync-banner sync-banner-info">
+            <span class="status-dot"></span>
+            <div>
+                <strong>Pipeline completed</strong>
+                <p>@pipelineStatus</p>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="dashboard-card filter-card mb-4">
+    <div class="card-section">
+        <form id="calculationFilterForm" method="get" class="row g-3 align-items-end" data-loading-form>
             <div class="col-md-4">
-                <label class="form-label" for="startPeriod">Başlangıç Tarihi</label>
+                <label class="form-label" for="startPeriod">Start Date</label>
                 <input class="form-control" type="date" id="startPeriod" name="startPeriod" value="@(Model.StartPeriod?.ToString("yyyy-MM-dd"))" />
             </div>
             <div class="col-md-4">
-                <label class="form-label" for="endPeriod">Bitiş Tarihi</label>
+                <label class="form-label" for="endPeriod">End Date</label>
                 <input class="form-control" type="date" id="endPeriod" name="endPeriod" value="@(Model.EndPeriod?.ToString("yyyy-MM-dd"))" />
             </div>
             <div class="col-md-4">
                 <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-primary">Raporu Getir</button>
+                    <button type="submit" class="btn btn-primary" data-loading-label="Running report...">Run Report</button>
                     @if (hasActiveFilter)
                     {
-                        <a class="btn btn-outline-secondary" asp-controller="Calculation" asp-action="Index">Tüm Verileri Göster</a>
+                        <a class="btn btn-outline-secondary" asp-controller="Calculation" asp-action="Index">Show All Data</a>
                     }
                 </div>
             </div>
         </form>
-        <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">
-            <span>Bu sayfa açık kaldığında sonuç alanı periyodik olarak yenilenir.</span>
-            <span>Son ekran yenileme: <strong id="lastRefreshTime">-</strong></span>
+        <div class="refresh-strip">
+            <span>The results panel refreshes periodically while this page remains open.</span>
+            <span>Last refresh: <strong id="lastRefreshTime">-</strong></span>
         </div>
     </div>
 </div>
@@ -48,6 +62,18 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         let resultsChartInstance = null;
+        document.querySelectorAll('[data-loading-form]').forEach((form) => {
+            form.addEventListener('submit', () => {
+                const button = form.querySelector('button[type="submit"]');
+                if (!button) {
+                    return;
+                }
+
+                button.textContent = button.dataset.loadingLabel || 'Processing...';
+                button.disabled = true;
+                button.classList.add('is-loading');
+            });
+        });
 
         function updateLastRefreshLabel() {
             const target = document.getElementById('lastRefreshTime');
@@ -55,7 +81,7 @@
                 return;
             }
 
-            target.textContent = new Intl.DateTimeFormat('tr-TR', {
+            target.textContent = new Intl.DateTimeFormat('en-US', {
                 day: '2-digit',
                 month: '2-digit',
                 year: 'numeric',
@@ -90,50 +116,109 @@
                     labels: chartData.labels,
                     datasets: [
                         {
-                            label: 'Varlık Tutarı',
+                            label: 'Asset Value',
                             data: chartData.assetSeries,
-                            borderColor: '#2f80ed',
-                            backgroundColor: 'rgba(47, 128, 237, 0.18)',
+                            borderColor: '#6ea8fe',
+                            backgroundColor: 'rgba(110, 168, 254, 0.16)',
                             fill: true,
                             tension: 0.35,
-                            pointRadius: 2,
-                            pointHoverRadius: 4
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            pointBackgroundColor: '#dbeafe'
                         },
                         {
-                            label: 'Dolarizasyon Varlık',
+                            label: 'Dollarized Asset Value',
                             data: chartData.dollarizedSeries,
-                            borderColor: '#f2994a',
-                            backgroundColor: 'rgba(242, 153, 74, 0.08)',
+                            borderColor: '#f5c26b',
+                            backgroundColor: 'rgba(245, 194, 107, 0.08)',
                             fill: false,
                             tension: 0.35,
-                            pointRadius: 2,
-                            pointHoverRadius: 4
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            pointBackgroundColor: '#f5c26b'
                         },
                         {
-                            label: 'Enflasyon Varlık',
+                            label: 'Inflation Adjusted Value',
                             data: chartData.inflationSeries,
-                            borderColor: '#eb5757',
-                            backgroundColor: 'rgba(235, 87, 87, 0.08)',
+                            borderColor: '#6ee7b7',
+                            backgroundColor: 'rgba(110, 231, 183, 0.08)',
                             fill: false,
                             tension: 0.35,
-                            pointRadius: 2,
-                            pointHoverRadius: 4
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            pointBackgroundColor: '#6ee7b7'
                         }
                     ]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
                     plugins: {
                         legend: {
-                            position: 'bottom'
+                            position: 'bottom',
+                            labels: {
+                                color: '#9aa8bd',
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 8,
+                                padding: 20,
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(10, 15, 25, 0.96)',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(148, 163, 184, 0.18)',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true,
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y || 0;
+                                    const formatted = new Intl.NumberFormat('en-US', {
+                                        style: 'currency',
+                                        currency: 'TRY',
+                                        maximumFractionDigits: 0
+                                    }).format(value);
+
+                                    return `${context.dataset.label}: ${formatted}`;
+                                }
+                            }
                         }
                     },
                     scales: {
-                        y: {
+                        x: {
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.06)'
+                            },
                             ticks: {
+                                color: '#7f8ea3',
+                                maxRotation: 0,
+                                autoSkipPadding: 22
+                            }
+                        },
+                        y: {
+                            border: {
+                                color: 'rgba(148, 163, 184, 0.08)'
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.08)'
+                            },
+                            ticks: {
+                                color: '#7f8ea3',
                                 callback: function(value) {
-                                    return new Intl.NumberFormat('tr-TR', {
+                                    return new Intl.NumberFormat('en-US', {
                                         style: 'currency',
                                         currency: 'TRY',
                                         maximumFractionDigits: 0
@@ -164,7 +249,7 @@
                 initializeResultsChart();
                 updateLastRefreshLabel();
             } catch {
-                // veri değişse de sayfa tam yenilenmeden sadece sonuç alanı güncellenir
+                // keep the current results visible if live refresh fails
             }
         }
 

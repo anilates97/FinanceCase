@@ -36,19 +36,19 @@ The application needed to handle Excel imports, historical exchange-rate synchro
 
 ### Data Import
 
-![Data Import Screen](FinanceCase.Web/screenshots/import-page.png)
+![Data Import Screen](FinanceCase.Web/screenshots/import-page-v2.png)
 
 ### Exchange Rate Records
 
-![Exchange Rates](FinanceCase.Web/screenshots/exchange-rates.png)
+![Exchange Rates](FinanceCase.Web/screenshots/exchange-rates-v2.png)
 
 ### Results Chart
 
-![Results Chart](FinanceCase.Web/screenshots/results-chart.png)
+![Results Chart](FinanceCase.Web/screenshots/results-chart-v2.png)
 
 ### Results Table
 
-![Results Table](FinanceCase.Web/screenshots/results-table.png)
+![Results Table](FinanceCase.Web/screenshots/results-table-v2.png)
 
 ---
 

@@ -195,15 +195,19 @@
 
             document.querySelectorAll('.upload-input').forEach((input) => {
                 const target = document.querySelector(`[data-file-name-for="${input.id}"]`);
+                const control = input.previousElementSibling;
 
                 input.addEventListener('change', () => {
                     if (!target) {
                         return;
                     }
 
-                    target.textContent = input.files?.[0]?.name || 'No Excel file selected';
+                    const fileName = input.files?.[0]?.name;
+                    target.textContent = fileName || 'No Excel file selected';
+                    control?.classList.toggle('is-selected', Boolean(fileName));
                 });
-            });`r`n        })();
+            });
+        })();
     </script>
 }
 
